@@ -1,0 +1,24 @@
+node_modules/
+dist/
+coverage/
+.turbo/
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Prisma
+apps/api/prisma/dev.db

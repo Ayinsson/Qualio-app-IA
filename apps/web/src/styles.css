@@ -1,0 +1,137 @@
+:root {
+  --bg-1: #f5f7ff;
+  --bg-2: #e9f2ff;
+  --card: #ffffff;
+  --ink: #1d2433;
+  --ink-soft: #5a6478;
+  --border: #d8dfeb;
+  --brand: #1f6feb;
+  --brand-strong: #1256bf;
+  --error: #b42318;
+  color: var(--ink);
+  font-family: 'Manrope', 'Segoe UI', Tahoma, sans-serif;
+  line-height: 1.45;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at 20% 10%, #ffffff, transparent 35%),
+    linear-gradient(135deg, var(--bg-1), var(--bg-2));
+}
+
+.auth-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 20px;
+}
+
+.auth-card {
+  width: min(480px, 100%);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+  padding: 24px;
+}
+
+.auth-header h1 {
+  margin: 0 0 4px;
+  font-size: 2rem;
+}
+
+.auth-header p {
+  margin: 0 0 16px;
+  color: var(--ink-soft);
+}
+
+.auth-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.auth-toggle button {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #ffffff;
+  cursor: pointer;
+  font-weight: 600;
+  padding: 10px 12px;
+}
+
+.auth-toggle button.active {
+  border-color: var(--brand);
+  background: #e8f0ff;
+  color: var(--brand-strong);
+}
+
+.auth-form {
+  display: grid;
+  gap: 10px;
+}
+
+.auth-form label {
+  font-size: 0.95rem;
+}
+
+.auth-form input {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 1rem;
+  margin-top: 4px;
+  padding: 10px 12px;
+}
+
+.auth-form input:focus {
+  border-color: var(--brand);
+  outline: 2px solid #b6d0ff;
+}
+
+.auth-form button[type='submit'] {
+  margin-top: 8px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--brand);
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 0.98rem;
+  font-weight: 700;
+  padding: 11px 14px;
+}
+
+.auth-form button[type='submit']:hover {
+  background: var(--brand-strong);
+}
+
+.field-error {
+  color: var(--error);
+  font-size: 0.86rem;
+}
+
+.feedback {
+  margin: 14px 0 0;
+  border: 1px solid #c7dcff;
+  border-radius: 10px;
+  background: #eef5ff;
+  color: #174ea6;
+  font-size: 0.92rem;
+  padding: 10px 12px;
+}
+
+@media (max-width: 520px) {
+  .auth-card {
+    border-radius: 14px;
+    padding: 18px;
+  }
+
+  .auth-header h1 {
+    font-size: 1.7rem;
+  }
+}

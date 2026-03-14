@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String          @id @default(cuid())
+  email         String          @unique
+  passwordHash  String
+  createdAt     DateTime        @default(now())
+  ownedProjects Project[]
+  executions    TestExecution[]
+}
+
+model Project {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String
+  owner       User       @relation(fields: [ownerId], references: [id])
+  testCases    TestCase[]
+  createdAt   DateTime   @default(now())
+}
+
+model TestCase {
+  id             String          @id @default(cuid())
+  projectId      String
+  project        Project         @relation(fields: [projectId], references: [id])
+  title          String
+  steps          String
+  expectedResult String
+  priority       TestPriority    @default(MEDIUM)
+  status         TestCaseStatus  @default(DRAFT)
+  createdAt      DateTime        @default(now())
+  executions     TestExecution[]
+}
+
+model TestExecution {
+  id           String          @id @default(cuid())
+  testCaseId   String
+  testCase     TestCase        @relation(fields: [testCaseId], references: [id])
+  result       ExecutionResult
+  notes        String?
+  executedById String
+  executedBy   User            @relation(fields: [executedById], references: [id])
+  executedAt   DateTime        @default(now())
+}
+
+enum TestPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TestCaseStatus {
+  DRAFT
+  READY
+  ARCHIVED
+}
+
+enum ExecutionResult {
+  PASSED
+  FAILED
+  BLOCKED
+}
