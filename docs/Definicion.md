@@ -67,7 +67,7 @@ Campos minimos:
 ## 5. Stack y estructura objetivo
 
 - Frontend: React + Vite + TypeScript + React Router + TanStack Query + React Hook Form + Zod.
-- Backend: NestJS (Express adapter) + Prisma + PostgreSQL + class-validator.
+- Backend: NestJS (Express adapter) + Prisma + MySQL + class-validator.
 - Documentacion: carpeta `docs` con setup, arquitectura y decisiones.
 
 Estructura esperada:
