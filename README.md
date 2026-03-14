@@ -7,7 +7,7 @@ Qualio es una aplicacion web para la gestion de pruebas de software y control de
 ```text
 apps/
   web/   -> React + Vite + TypeScript
-  api/   -> NestJS + Prisma + PostgreSQL
+  api/   -> NestJS + Prisma + MySQL
 docs/    -> Documentacion funcional y tecnica
 ```
 

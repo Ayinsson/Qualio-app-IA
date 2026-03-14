@@ -1,6 +1,9 @@
+import { AxiosError } from 'axios';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+
+import { login, register } from './lib/auth';
 
 const loginSchema = z.object({
   email: z.string().email('Correo invalido'),
@@ -26,6 +29,7 @@ type AuthMode = 'login' | 'register';
 export function App() {
   const [mode, setMode] = useState<AuthMode>('login');
   const [feedback, setFeedback] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [loginErrors, setLoginErrors] = useState<Partial<Record<keyof LoginValues, string>>>({});
   const [registerErrors, setRegisterErrors] = useState<
     Partial<Record<keyof RegisterValues, string>>
@@ -39,7 +43,7 @@ export function App() {
     defaultValues: { fullName: '', email: '', password: '', confirmPassword: '' },
   });
 
-  const onLoginSubmit = (values: LoginValues) => {
+  const onLoginSubmit = async (values: LoginValues) => {
     const parsed = loginSchema.safeParse(values);
     if (!parsed.success) {
       const fieldErrors = parsed.error.flatten().fieldErrors;
@@ -51,11 +55,25 @@ export function App() {
       return;
     }
 
-    setLoginErrors({});
-    setFeedback(`Login valido para ${values.email} (demo local).`);
+    setSubmitting(true);
+
+    try {
+      const data = await login(values);
+
+      localStorage.setItem('qualio_access_token', data.accessToken);
+      localStorage.setItem('qualio_refresh_token', data.refreshToken);
+      localStorage.setItem('qualio_user', JSON.stringify(data.user));
+
+      setLoginErrors({});
+      setFeedback(`Sesion iniciada como ${data.user.email}.`);
+    } catch (error) {
+      setFeedback(getApiErrorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const onRegisterSubmit = (values: RegisterValues) => {
+  const onRegisterSubmit = async (values: RegisterValues) => {
     const parsed = registerSchema.safeParse(values);
     if (!parsed.success) {
       const fieldErrors = parsed.error.flatten().fieldErrors;
@@ -69,8 +87,26 @@ export function App() {
       return;
     }
 
-    setRegisterErrors({});
-    setFeedback(`Registro valido para ${values.fullName} (demo local).`);
+    setSubmitting(true);
+
+    try {
+      const data = await register({
+        email: values.email,
+        password: values.password,
+        name: values.fullName,
+      });
+
+      localStorage.setItem('qualio_access_token', data.accessToken);
+      localStorage.setItem('qualio_refresh_token', data.refreshToken);
+      localStorage.setItem('qualio_user', JSON.stringify(data.user));
+
+      setRegisterErrors({});
+      setFeedback(`Cuenta creada para ${data.user.email}.`);
+    } catch (error) {
+      setFeedback(getApiErrorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -121,7 +157,9 @@ export function App() {
               <span className="field-error">{loginErrors.password}</span>
             ) : null}
 
-            <button type="submit">Iniciar sesion</button>
+            <button type="submit" disabled={submitting}>
+              {submitting ? 'Validando...' : 'Iniciar sesion'}
+            </button>
           </form>
         ) : (
           <form className="auth-form" onSubmit={registerForm.handleSubmit(onRegisterSubmit)} noValidate>
@@ -169,7 +207,9 @@ export function App() {
               <span className="field-error">{registerErrors.confirmPassword}</span>
             ) : null}
 
-            <button type="submit">Crear cuenta</button>
+            <button type="submit" disabled={submitting}>
+              {submitting ? 'Creando...' : 'Crear cuenta'}
+            </button>
           </form>
         )}
 
@@ -177,4 +217,18 @@ export function App() {
       </section>
     </main>
   );
+}
+
+function getApiErrorMessage(error: unknown): string {
+  if (error instanceof AxiosError) {
+    const responseMessage = error.response?.data as { message?: string } | undefined;
+
+    if (typeof responseMessage?.message === 'string') {
+      return responseMessage.message;
+    }
+
+    return 'No fue posible completar la solicitud de autenticacion.';
+  }
+
+  return 'Ocurrio un error inesperado.';
 }

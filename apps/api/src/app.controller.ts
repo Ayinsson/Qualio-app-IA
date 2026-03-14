@@ -10,4 +10,9 @@ export class AppController {
   getHealth(): { status: string; service: string } {
     return this.appService.getHealth();
   }
+
+  @Get('health/db')
+  async getDatabaseHealth(): Promise<{ status: 'ok' | 'error'; database: 'mysql' }> {
+    return this.appService.getDatabaseHealth();
+  }
 }

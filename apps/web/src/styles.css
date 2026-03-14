@@ -110,6 +110,11 @@ body {
   background: var(--brand-strong);
 }
 
+.auth-form button[type='submit']:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .field-error {
   color: var(--error);
   font-size: 0.86rem;
