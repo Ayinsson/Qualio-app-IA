@@ -2,6 +2,7 @@ node_modules/
 dist/
 coverage/
 .turbo/
+*.tsbuildinfo
 
 # Env files
 .env
@@ -22,3 +23,7 @@ Thumbs.db
 
 # Prisma
 apps/api/prisma/dev.db
+
+# Generated TS artifacts
+apps/web/*.js
+apps/web/*.d.ts
