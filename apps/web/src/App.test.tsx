@@ -3,10 +3,10 @@ import { render, screen } from '@testing-library/react';
 import { App } from './App';
 
 describe('App', () => {
-  it('renders project bootstrap message', () => {
+  it('renders auth header branding', () => {
     render(<App />);
 
-    expect(screen.getByRole('heading', { name: 'Qualio' })).toBeInTheDocument();
-    expect(screen.getByText(/MVP v0.1/i)).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Qualio' })).toBeInTheDocument();
+    expect(screen.getByText('Tu Qa aliado !')).toBeInTheDocument();
   });
 });

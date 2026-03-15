@@ -1,5 +1,5 @@
 import { AxiosError } from 'axios';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -25,11 +25,17 @@ const registerSchema = z
 type LoginValues = z.infer<typeof loginSchema>;
 type RegisterValues = z.infer<typeof registerSchema>;
 type AuthMode = 'login' | 'register';
+type ToastType = 'success' | 'error';
+
+type ToastState = {
+  message: string;
+  type: ToastType;
+} | null;
 
 export function App() {
   const [mode, setMode] = useState<AuthMode>('login');
   const [logoFailed, setLogoFailed] = useState(false);
-  const [feedback, setFeedback] = useState('');
+  const [toast, setToast] = useState<ToastState>(null);
   const [submitting, setSubmitting] = useState(false);
   const [loginErrors, setLoginErrors] = useState<Partial<Record<keyof LoginValues, string>>>({});
   const [registerErrors, setRegisterErrors] = useState<
@@ -44,6 +50,22 @@ export function App() {
     defaultValues: { fullName: '', email: '', password: '', confirmPassword: '' },
   });
 
+  useEffect(() => {
+    if (!toast) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setToast(null);
+    }, 4500);
+
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  const showToast = (message: string, type: ToastType) => {
+    setToast({ message, type });
+  };
+
   const onLoginSubmit = async (values: LoginValues) => {
     const parsed = loginSchema.safeParse(values);
     if (!parsed.success) {
@@ -52,7 +74,6 @@ export function App() {
         email: fieldErrors.email?.[0],
         password: fieldErrors.password?.[0],
       });
-      setFeedback('');
       return;
     }
 
@@ -66,9 +87,9 @@ export function App() {
       localStorage.setItem('qualio_user', JSON.stringify(data.user));
 
       setLoginErrors({});
-      setFeedback(`Sesion iniciada como ${data.user.email}.`);
+      showToast(`Sesion iniciada como ${data.user.email}.`, 'success');
     } catch (error) {
-      setFeedback(getApiErrorMessage(error));
+      showToast(getApiErrorMessage(error), 'error');
     } finally {
       setSubmitting(false);
     }
@@ -84,7 +105,6 @@ export function App() {
         password: fieldErrors.password?.[0],
         confirmPassword: fieldErrors.confirmPassword?.[0],
       });
-      setFeedback('');
       return;
     }
 
@@ -102,9 +122,9 @@ export function App() {
       localStorage.setItem('qualio_user', JSON.stringify(data.user));
 
       setRegisterErrors({});
-      setFeedback(`Cuenta creada para ${data.user.email}.`);
+      showToast(`Cuenta creada para ${data.user.email}.`, 'success');
     } catch (error) {
-      setFeedback(getApiErrorMessage(error));
+      showToast(getApiErrorMessage(error), 'error');
     } finally {
       setSubmitting(false);
     }
@@ -133,7 +153,6 @@ export function App() {
             className={mode === 'login' ? 'active' : ''}
             onClick={() => {
               setMode('login');
-              setFeedback('');
             }}
           >
             Login
@@ -143,7 +162,6 @@ export function App() {
             className={mode === 'register' ? 'active' : ''}
             onClick={() => {
               setMode('register');
-              setFeedback('');
             }}
           >
             Registro
@@ -222,9 +240,13 @@ export function App() {
             </button>
           </form>
         )}
-
-        {feedback ? <p className="feedback">{feedback}</p> : null}
       </section>
+
+      {toast ? (
+        <div className="toast-wrap" role="status" aria-live="polite">
+          <div className={`toast toast-${toast.type}`}>{toast.message}</div>
+        </div>
+      ) : null}
     </main>
   );
 }
