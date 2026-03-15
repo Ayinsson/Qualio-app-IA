@@ -12,7 +12,7 @@ export class AppController {
   }
 
   @Get('health/db')
-  async getDatabaseHealth(): Promise<{ status: 'ok' | 'error'; database: 'mysql' }> {
+  async getDatabaseHealth(): Promise<{ status: 'ok' | 'error'; database: 'supabase-postgres' }> {
     return this.appService.getDatabaseHealth();
   }
 }

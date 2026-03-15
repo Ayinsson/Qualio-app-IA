@@ -4,7 +4,7 @@ Este archivo define la fuente de verdad tecnica para agentes y colaboradores.
 
 ## 1) Estado oficial actual
 
-- Base de datos oficial en este repo: **MySQL**.
+- Base de datos oficial en este repo: **Supabase Postgres**.
 - ORM oficial: **Prisma**.
 - Backend: **NestJS** (`apps/api`).
 - Frontend: **React + Vite + TypeScript** (`apps/web`).
@@ -34,7 +34,7 @@ Cuando exista conflicto, usar este orden:
 API (`apps/api/.env`):
 
 ```env
-DATABASE_URL="mysql://qualio_user:Wcv4rT5s@localhost:3306/qualio_db"
+DATABASE_URL="postgresql://postgres:<DB_PASSWORD>@db.<PROJECT_REF>.supabase.co:5432/postgres"
 JWT_SECRET="cambiar-por-valor-seguro"
 PORT=3000
 ```
@@ -43,6 +43,8 @@ Frontend (`apps/web/.env`):
 
 ```env
 VITE_API_URL="http://localhost:3000"
+VITE_SUPABASE_URL="https://<PROJECT_REF>.supabase.co"
+VITE_SUPABASE_ANON_KEY="sb_publishable_xxx"
 ```
 
 ## 5) Documentos actuales recomendados

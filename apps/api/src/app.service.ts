@@ -13,12 +13,12 @@ export class AppService {
     };
   }
 
-  async getDatabaseHealth(): Promise<{ status: 'ok' | 'error'; database: 'mysql' }> {
+  async getDatabaseHealth(): Promise<{ status: 'ok' | 'error'; database: 'supabase-postgres' }> {
     const connected = await this.prisma.checkConnection();
 
     return {
       status: connected ? 'ok' : 'error',
-      database: 'mysql',
+      database: 'supabase-postgres',
     };
   }
 }

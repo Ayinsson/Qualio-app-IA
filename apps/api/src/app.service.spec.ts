@@ -15,13 +15,13 @@ describe('AppService', () => {
     });
   });
 
-  it('returns mysql status ok when db is connected', async () => {
+  it('returns supabase-postgres status ok when db is connected', async () => {
     const service = new AppService(prismaMock);
     jest.spyOn(prismaMock, 'checkConnection').mockResolvedValue(true);
 
     await expect(service.getDatabaseHealth()).resolves.toEqual({
       status: 'ok',
-      database: 'mysql',
+      database: 'supabase-postgres',
     });
   });
 });

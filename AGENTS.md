@@ -5,7 +5,7 @@ Guidance for agentic coding assistants working in `Qualio-app-IA`.
 ## 1) Repository reality and intent
 
 - Current repo content is documentation-first (`README.md`, `docs/`).
-- Official target stack (from docs): React + Vite + TypeScript (`apps/web`), NestJS + Express + Prisma + MySQL (`apps/api`).
+- Official target stack (from docs): React + Vite + TypeScript (`apps/web`), NestJS + Express + Prisma + Supabase Postgres (`apps/api`).
 - Use this file as the default operating contract for future code generation and maintenance.
 - If code and this file diverge, prefer actual project config files (`package.json`, eslint/prettier/jest/vitest configs).
 

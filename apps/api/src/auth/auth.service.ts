@@ -33,28 +33,27 @@ export class AuthService {
     const userId = randomUUID();
     const passwordHash = await argon2.hash(dto.password);
 
-    await this.prisma.$executeRawUnsafe(
-      `
-        INSERT INTO users (
-          id,
-          email,
-          password_hash,
-          name,
-          is_active,
-          email_verified,
-          failed_login_attempts,
-          locked_until
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `,
-      userId,
-      dto.email,
-      passwordHash,
-      dto.name ?? null,
-      true,
-      false,
-      0,
-      null,
-    );
+    await this.prisma.$executeRaw`
+      INSERT INTO users (
+        id,
+        email,
+        password_hash,
+        name,
+        is_active,
+        email_verified,
+        failed_login_attempts,
+        locked_until
+      ) VALUES (
+        ${userId},
+        ${dto.email},
+        ${passwordHash},
+        ${dto.name ?? null},
+        ${true},
+        ${false},
+        ${0},
+        ${null}
+      )
+    `;
 
     const user = await this.findUserById(userId);
 
@@ -79,18 +78,20 @@ export class AuthService {
     const passwordValid = await argon2.verify(user.passwordHash, dto.password);
 
     if (!passwordValid) {
-      await this.prisma.$executeRawUnsafe(
-        'UPDATE users SET failed_login_attempts = failed_login_attempts + 1 WHERE id = ?',
-        user.id,
-      );
+      await this.prisma.$executeRaw`
+        UPDATE users
+        SET failed_login_attempts = failed_login_attempts + 1
+        WHERE id = ${user.id}
+      `;
 
       throw new UnauthorizedException('Credenciales invalidas.');
     }
 
-    await this.prisma.$executeRawUnsafe(
-      'UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?',
-      user.id,
-    );
+    await this.prisma.$executeRaw`
+      UPDATE users
+      SET failed_login_attempts = 0, locked_until = NULL
+      WHERE id = ${user.id}
+    `;
 
     return this.issueTokens(user, userAgent, ipAddress);
   }
@@ -117,10 +118,12 @@ export class AuthService {
   async logout(refreshToken: string): Promise<{ success: true }> {
     const refreshTokenHash = this.hashToken(refreshToken);
 
-    await this.prisma.$executeRawUnsafe(
-      'UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = ? AND revoked_at IS NULL',
-      refreshTokenHash,
-    );
+    await this.prisma.$executeRaw`
+      UPDATE refresh_tokens
+      SET revoked_at = NOW()
+      WHERE token_hash = ${refreshTokenHash}
+        AND revoked_at IS NULL
+    `;
 
     return { success: true };
   }
@@ -147,26 +150,25 @@ export class AuthService {
     const refreshTokenId = randomUUID();
     const expiresAt = new Date(Date.now() + this.refreshTokenTtlMs);
 
-    await this.prisma.$executeRawUnsafe(
-      `
-        INSERT INTO refresh_tokens (
-          id,
-          user_id,
-          token_hash,
-          user_agent,
-          ip_address,
-          expires_at,
-          revoked_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-      `,
-      refreshTokenId,
-      user.id,
-      refreshTokenHash,
-      userAgent ?? null,
-      ipAddress ?? null,
-      expiresAt,
-      null,
-    );
+    await this.prisma.$executeRaw`
+      INSERT INTO refresh_tokens (
+        id,
+        user_id,
+        token_hash,
+        user_agent,
+        ip_address,
+        expires_at,
+        revoked_at
+      ) VALUES (
+        ${refreshTokenId},
+        ${user.id},
+        ${refreshTokenHash},
+        ${userAgent ?? null},
+        ${ipAddress ?? null},
+        ${expiresAt},
+        ${null}
+      )
+    `;
 
     return {
       accessToken,
@@ -181,69 +183,61 @@ export class AuthService {
   }
 
   private async findUserByEmail(email: string): Promise<UserRecord | null> {
-    const users = (await this.prisma.$queryRawUnsafe(
-      `
-        SELECT
-          id,
-          email,
-          password_hash AS passwordHash,
-          name,
-          is_active AS isActive,
-          email_verified AS emailVerified
-        FROM users
-        WHERE email = ?
-        LIMIT 1
-      `,
-      email,
-    )) as UserRecord[];
+    const users = (await this.prisma.$queryRaw`
+      SELECT
+        id,
+        email,
+        password_hash AS "passwordHash",
+        name,
+        is_active AS "isActive",
+        email_verified AS "emailVerified"
+      FROM users
+      WHERE email = ${email}
+      LIMIT 1
+    `) as UserRecord[];
 
     return users[0] ?? null;
   }
 
   private async findUserById(id: string): Promise<UserRecord | null> {
-    const users = (await this.prisma.$queryRawUnsafe(
-      `
-        SELECT
-          id,
-          email,
-          password_hash AS passwordHash,
-          name,
-          is_active AS isActive,
-          email_verified AS emailVerified
-        FROM users
-        WHERE id = ?
-        LIMIT 1
-      `,
-      id,
-    )) as UserRecord[];
+    const users = (await this.prisma.$queryRaw`
+      SELECT
+        id,
+        email,
+        password_hash AS "passwordHash",
+        name,
+        is_active AS "isActive",
+        email_verified AS "emailVerified"
+      FROM users
+      WHERE id = ${id}
+      LIMIT 1
+    `) as UserRecord[];
 
     return users[0] ?? null;
   }
 
   private async findRefreshToken(tokenHash: string): Promise<RefreshTokenRecord | null> {
-    const records = (await this.prisma.$queryRawUnsafe(
-      `
-        SELECT
-          id,
-          user_id AS userId,
-          expires_at AS expiresAt
-        FROM refresh_tokens
-        WHERE token_hash = ?
-          AND revoked_at IS NULL
-          AND expires_at > NOW()
-        LIMIT 1
-      `,
-      tokenHash,
-    )) as RefreshTokenRecord[];
+    const records = (await this.prisma.$queryRaw`
+      SELECT
+        id,
+        user_id AS "userId",
+        expires_at AS "expiresAt"
+      FROM refresh_tokens
+      WHERE token_hash = ${tokenHash}
+        AND revoked_at IS NULL
+        AND expires_at > NOW()
+      LIMIT 1
+    `) as RefreshTokenRecord[];
 
     return records[0] ?? null;
   }
 
   private async revokeRefreshTokenById(tokenId: string): Promise<void> {
-    await this.prisma.$executeRawUnsafe(
-      'UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = ?',
-      tokenId,
-    );
+    await this.prisma.$executeRaw`
+      UPDATE refresh_tokens
+      SET revoked_at = NOW()
+      WHERE id = ${tokenId}
+    `;
   }
 
   private hashToken(value: string): string {
