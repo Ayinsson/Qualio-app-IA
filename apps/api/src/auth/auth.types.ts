@@ -3,6 +3,7 @@ export type UserRecord = {
   email: string;
   passwordHash: string;
   name: string | null;
+  avatarUrl: string | null;
   isActive: number | boolean;
   emailVerified: number | boolean;
 };
@@ -27,4 +28,12 @@ export type AuthResponse = {
     name: string | null;
     emailVerified: boolean;
   };
+};
+
+export type PublicUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  avatarUrl: string | null;
+  emailVerified: boolean;
 };

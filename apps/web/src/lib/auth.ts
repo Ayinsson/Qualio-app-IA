@@ -5,6 +5,7 @@ export type AuthUser = {
   email: string;
   name: string | null;
   emailVerified: boolean;
+  avatarUrl?: string | null;
 };
 
 export type AuthResponse = {
@@ -18,6 +19,20 @@ export type SessionUserResponse = {
     sub: string;
     email: string;
   };
+};
+
+export type UpdateProfilePayload = {
+  name: string;
+  email: string;
+};
+
+export type UpdateProfileResponse = {
+  user: AuthUser;
+};
+
+export type ChangePasswordPayload = {
+  currentPassword: string;
+  newPassword: string;
 };
 
 export type LoginPayload = {
@@ -47,6 +62,49 @@ export async function getSessionUser(accessToken: string): Promise<SessionUserRe
       Authorization: `Bearer ${accessToken}`,
     },
   });
+
+  return data;
+}
+
+export async function updateProfile(
+  accessToken: string,
+  payload: UpdateProfilePayload,
+): Promise<UpdateProfileResponse> {
+  const { data } = await api.patch<UpdateProfileResponse>('/auth/profile', payload, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  return data;
+}
+
+export async function changePassword(
+  accessToken: string,
+  payload: ChangePasswordPayload,
+): Promise<{ success: true }> {
+  const { data } = await api.patch<{ success: true }>('/auth/password', payload, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  return data;
+}
+
+export async function updateAvatar(
+  accessToken: string,
+  avatarUrl: string,
+): Promise<UpdateProfileResponse> {
+  const { data } = await api.patch<UpdateProfileResponse>(
+    '/auth/avatar',
+    { avatarUrl },
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
 
   return data;
 }

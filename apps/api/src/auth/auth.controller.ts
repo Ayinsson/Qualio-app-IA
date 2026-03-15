@@ -4,6 +4,7 @@ import {
   Get,
   Headers,
   Ip,
+  Patch,
   Post,
   Req,
   UnauthorizedException,
@@ -12,11 +13,14 @@ import {
 import { Request } from 'express';
 
 import { AuthService } from './auth.service';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { LogoutDto } from './dto/logout.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
-import { AuthPayload, AuthResponse } from './auth.types';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdateAvatarDto } from './dto/update-avatar.dto';
+import { AuthPayload, AuthResponse, PublicUser } from './auth.types';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Controller('auth')
@@ -65,5 +69,50 @@ export class AuthController {
     }
 
     return { user };
+  }
+
+  @Patch('profile')
+  @UseGuards(JwtAuthGuard)
+  updateProfile(
+    @Req() req: Request & { user?: AuthPayload },
+    @Body() dto: UpdateProfileDto,
+  ): Promise<{ user: PublicUser }> {
+    const { user } = req;
+
+    if (!user) {
+      throw new UnauthorizedException('Sesion invalida.');
+    }
+
+    return this.authService.updateProfile(user.sub, dto);
+  }
+
+  @Patch('password')
+  @UseGuards(JwtAuthGuard)
+  changePassword(
+    @Req() req: Request & { user?: AuthPayload },
+    @Body() dto: ChangePasswordDto,
+  ): Promise<{ success: true }> {
+    const { user } = req;
+
+    if (!user) {
+      throw new UnauthorizedException('Sesion invalida.');
+    }
+
+    return this.authService.changePassword(user.sub, dto);
+  }
+
+  @Patch('avatar')
+  @UseGuards(JwtAuthGuard)
+  updateAvatar(
+    @Req() req: Request & { user?: AuthPayload },
+    @Body() dto: UpdateAvatarDto,
+  ): Promise<{ user: PublicUser }> {
+    const { user } = req;
+
+    if (!user) {
+      throw new UnauthorizedException('Sesion invalida.');
+    }
+
+    return this.authService.updateAvatar(user.sub, dto.avatarUrl);
   }
 }

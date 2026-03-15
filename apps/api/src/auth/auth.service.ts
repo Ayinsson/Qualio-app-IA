@@ -8,10 +8,12 @@ import * as argon2 from 'argon2';
 import { createHash, randomUUID } from 'crypto';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
-import { AuthPayload, AuthResponse, RefreshTokenRecord, UserRecord } from './auth.types';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { AuthPayload, AuthResponse, PublicUser, RefreshTokenRecord, UserRecord } from './auth.types';
 
 @Injectable()
 export class AuthService {
@@ -39,6 +41,7 @@ export class AuthService {
         email,
         password_hash,
         name,
+        avatar_url,
         is_active,
         email_verified,
         failed_login_attempts,
@@ -48,6 +51,7 @@ export class AuthService {
         ${dto.email},
         ${passwordHash},
         ${dto.name ?? null},
+        ${null},
         ${true},
         ${false},
         ${0},
@@ -128,6 +132,93 @@ export class AuthService {
     return { success: true };
   }
 
+  async updateProfile(userId: string, dto: UpdateProfileDto): Promise<{ user: PublicUser }> {
+    const user = await this.findUserById(userId);
+
+    if (!user) {
+      throw new UnauthorizedException('Sesion invalida.');
+    }
+
+    const normalizedEmail = dto.email.trim().toLowerCase();
+    const candidate = await this.findUserByEmail(normalizedEmail);
+
+    if (candidate && candidate.id !== userId) {
+      throw new BadRequestException('El correo ya esta registrado por otro usuario.');
+    }
+
+    await this.prisma.$executeRaw`
+      UPDATE users
+      SET name = ${dto.name.trim()},
+          email = ${normalizedEmail},
+          updated_at = NOW()
+      WHERE id = ${userId}
+    `;
+
+    const updated = await this.findUserById(userId);
+
+    if (!updated) {
+      throw new UnauthorizedException('No fue posible actualizar el perfil.');
+    }
+
+    return {
+      user: this.toPublicUser(updated),
+    };
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto): Promise<{ success: true }> {
+    const user = await this.findUserById(userId);
+
+    if (!user) {
+      throw new UnauthorizedException('Sesion invalida.');
+    }
+
+    const currentMatches = await argon2.verify(user.passwordHash, dto.currentPassword);
+
+    if (!currentMatches) {
+      throw new BadRequestException('La contrasena actual no es valida.');
+    }
+
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException('La nueva contrasena debe ser diferente a la actual.');
+    }
+
+    const newHash = await argon2.hash(dto.newPassword);
+
+    await this.prisma.$executeRaw`
+      UPDATE users
+      SET password_hash = ${newHash},
+          updated_at = NOW()
+      WHERE id = ${userId}
+    `;
+
+    return { success: true };
+  }
+
+  async updateAvatar(userId: string, avatarUrl: string): Promise<{ user: PublicUser }> {
+    const user = await this.findUserById(userId);
+
+    if (!user) {
+      throw new UnauthorizedException('Sesion invalida.');
+    }
+
+    await this.prisma.$executeRaw`
+      UPDATE users
+      SET avatar_url = ${avatarUrl},
+          updated_at = NOW()
+      WHERE id = ${userId}
+    `;
+
+    const updated = await this.findUserById(userId);
+
+    if (!updated) {
+      throw new UnauthorizedException('No fue posible actualizar el avatar.');
+    }
+
+    return {
+      user: this.toPublicUser(updated),
+    };
+  }
+
   private async issueTokens(
     user: UserRecord,
     userAgent?: string,
@@ -174,11 +265,18 @@ export class AuthService {
       accessToken,
       refreshToken,
       user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        emailVerified: this.isTruthy(user.emailVerified),
+        ...this.toPublicUser(user),
       },
+    };
+  }
+
+  private toPublicUser(user: UserRecord): PublicUser {
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatarUrl: user.avatarUrl,
+      emailVerified: this.isTruthy(user.emailVerified),
     };
   }
 
@@ -189,6 +287,7 @@ export class AuthService {
         email,
         password_hash AS "passwordHash",
         name,
+        avatar_url AS "avatarUrl",
         is_active AS "isActive",
         email_verified AS "emailVerified"
       FROM users
@@ -206,6 +305,7 @@ export class AuthService {
         email,
         password_hash AS "passwordHash",
         name,
+        avatar_url AS "avatarUrl",
         is_active AS "isActive",
         email_verified AS "emailVerified"
       FROM users

@@ -56,11 +56,15 @@ Regla: no usar hex sueltos en componentes nuevos si ya existe token equivalente.
 
 - Fuente base: `Manrope`.
 - Fallback: `Segoe UI`, `Tahoma`, `sans-serif`.
-- Jerarquia minima:
-  - H1: 2rem
-  - H2: 1.5rem
-  - Texto base: 1rem
-  - Texto secundario: 0.9rem a 0.95rem
+- Jerarquia estandar (basada en login y shell actual):
+  - `H1 principal`: `1.85rem`
+  - `H2 seccion`: `1.55rem`
+  - `H3 bloque`: `1.4rem`
+  - `Texto base`: `1rem`
+  - `Texto secundario`: `0.9rem` a `0.95rem`
+  - `Texto de navegacion`: `0.97rem` a `0.98rem`
+
+Regla: evitar escalar tipografia por encima de estos valores en pantallas estandar.
 
 ## 6. Espaciado y layout
 
@@ -77,18 +81,35 @@ Regla: no usar hex sueltos en componentes nuevos si ya existe token equivalente.
 - Texto: blanco
 - Hover: `--color-primary-dark`
 - Disabled: opacidad reducida y cursor `not-allowed`
+- Tamano recomendado: `0.96rem` a `1rem`
+- Padding recomendado: `10px 14px` a `11px 16px`
 
 ### 7.2 Inputs
 
 - Borde normal: `--color-gray-light`
 - Foco: borde `--color-primary-bright` + anillo de foco visible
 - Radio de borde: `10px`
+- Tamano de fuente recomendado: `1rem`
+- Alto visual objetivo: `40px` a `46px`
 
-### 7.3 Mensajes de feedback
+### 7.3 Navegacion lateral
+
+- Grupos principales: `0.98rem`.
+- Subitems: `0.97rem`.
+- Evitar texto de menu > `1rem` para no romper densidad visual.
+
+### 7.4 Mensajes de feedback
 
 - Informativo: base turquesa suave
 - Error: rojo con contraste adecuado
 - Exito: verde con contraste adecuado
+
+### 7.5 Modales
+
+- Titulo de modal (`H2`): `1.55rem`.
+- Subtitulo de bloque (`H3`): `1.4rem`.
+- Botones internos: `0.96rem` a `0.98rem`.
+- En mobile, reducir titulos a `1.3rem`.
 
 ## 8. Accesibilidad minima obligatoria
 
@@ -103,6 +124,7 @@ Regla: no usar hex sueltos en componentes nuevos si ya existe token equivalente.
 - Mantener el mismo radio de bordes y estilos base de controles.
 - No mezclar paletas externas sin aprobacion.
 - Cualquier cambio de paleta o tipografia debe actualizar este documento.
+- Si un componente nuevo se ve "mas grande" que login, reducirlo al rango definido en seccion de tipografia y componentes.
 
 ## 10. Estado actual de implementacion
 

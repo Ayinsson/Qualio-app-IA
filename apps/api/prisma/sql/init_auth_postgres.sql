@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(191) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   name VARCHAR(100),
+  avatar_url TEXT,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   email_verified BOOLEAN NOT NULL DEFAULT FALSE,
   failed_login_attempts INT NOT NULL DEFAULT 0,

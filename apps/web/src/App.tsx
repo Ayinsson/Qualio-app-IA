@@ -1,7 +1,7 @@
 import { AxiosError } from 'axios';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { ChangeEvent, ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import {
   BrowserRouter,
@@ -14,7 +14,8 @@ import {
 } from 'react-router-dom';
 import { z } from 'zod';
 
-import { getSessionUser, login, register } from './lib/auth';
+import { changePassword, getSessionUser, login, register, updateAvatar, updateProfile } from './lib/auth';
+import { supabase } from './lib/supabase';
 
 const loginSchema = z.object({
   email: z.string().email('Correo invalido'),
@@ -50,6 +51,7 @@ type StoredUser = {
   email: string;
   name: string | null;
   emailVerified: boolean;
+  avatarUrl?: string | null;
 };
 
 export function App() {
@@ -343,8 +345,9 @@ function AppShell({
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [collabOpen, setCollabOpen] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const accessToken = localStorage.getItem('qualio_access_token');
-  const storedUser = getStoredUser();
+  const [storedUser, setStoredUser] = useState<StoredUser | null>(() => getStoredUser());
 
   const sessionQuery = useQuery({
     queryKey: ['session-user', accessToken],
@@ -373,6 +376,19 @@ function AppShell({
     setMenuOpen(false);
     setProfileOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (!profileModalOpen) {
+      return;
+    }
+
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [profileModalOpen]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -474,7 +490,11 @@ function AppShell({
                 aria-expanded={profileOpen}
                 onClick={() => setProfileOpen((value) => !value)}
               >
-                <IconUser />
+                {storedUser?.avatarUrl ? (
+                  <img src={storedUser.avatarUrl} alt="Avatar" className="topbar-avatar" />
+                ) : (
+                  <IconUser />
+                )}
               </button>
 
               {profileOpen ? (
@@ -482,6 +502,16 @@ function AppShell({
                   <strong>{storedUser?.name ?? 'Administrador'}</strong>
                   <p>{sessionQuery.data?.user.email ?? storedUser?.email ?? 'usuario@qualio.local'}</p>
                   <span className="role-badge">Admin de sus proyectos</span>
+                  <button
+                    type="button"
+                    className="profile-action-btn"
+                    onClick={() => {
+                      setProfileOpen(false);
+                      setProfileModalOpen(true);
+                    }}
+                  >
+                    Editar perfil
+                  </button>
                   <button type="button" className="logout-btn" onClick={logout}>
                     Cerrar sesion
                   </button>
@@ -505,6 +535,356 @@ function AppShell({
           </Routes>
         </main>
       </div>
+
+      {profileModalOpen ? (
+        <ProfileModal
+          accessToken={accessToken}
+          userName={storedUser?.name ?? 'Administrador'}
+          userEmail={sessionQuery.data?.user.email ?? storedUser?.email ?? 'usuario@qualio.local'}
+          avatarUrl={storedUser?.avatarUrl ?? null}
+          onUserUpdated={setStoredUser}
+          onClose={() => setProfileModalOpen(false)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function ProfileModal({
+  accessToken,
+  userName,
+  userEmail,
+  avatarUrl: initialAvatarUrl,
+  onUserUpdated,
+  onClose,
+}: {
+  accessToken: string | null;
+  userName: string;
+  userEmail: string;
+  avatarUrl: string | null;
+  onUserUpdated: (user: StoredUser) => void;
+  onClose: () => void;
+}) {
+  const [toast, setToast] = useState<ToastState>(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [avatarName, setAvatarName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(initialAvatarUrl);
+  const [passwordErrors, setPasswordErrors] = useState<{
+    currentPassword?: string;
+    nextPassword?: string;
+    confirmPassword?: string;
+  }>({});
+
+  const profileForm = useForm<{ displayName: string }>({
+    defaultValues: {
+      displayName: userName,
+    },
+  });
+
+  const passwordForm = useForm<{ currentPassword: string; nextPassword: string; confirmPassword: string }>({
+    defaultValues: {
+      currentPassword: '',
+      nextPassword: '',
+      confirmPassword: '',
+    },
+  });
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!toast) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setToast(null), 3500);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  const saveProfile = async (values: { displayName: string }) => {
+    if (!accessToken) {
+      setToast({ message: 'No hay sesion activa para actualizar el perfil.', type: 'error' });
+      return;
+    }
+
+    setSavingProfile(true);
+
+    try {
+      const response = await updateProfile(accessToken, {
+        name: values.displayName,
+        email: userEmail,
+      });
+
+      const nextUser: StoredUser = {
+        ...response.user,
+        avatarUrl,
+      };
+
+      localStorage.setItem(
+        'qualio_user',
+        JSON.stringify(nextUser),
+      );
+      onUserUpdated(nextUser);
+
+      setToast({ message: 'Perfil actualizado correctamente.', type: 'success' });
+    } catch (error) {
+      setToast({ message: getApiErrorMessage(error), type: 'error' });
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const updatePassword = async (values: {
+    currentPassword: string;
+    nextPassword: string;
+    confirmPassword: string;
+  }) => {
+    const errors: {
+      currentPassword?: string;
+      nextPassword?: string;
+      confirmPassword?: string;
+    } = {};
+
+    if (!values.currentPassword) {
+      errors.currentPassword = 'Ingresa tu contrasena actual.';
+    }
+
+    if (values.nextPassword.length < 8) {
+      errors.nextPassword = 'La nueva contrasena debe tener al menos 8 caracteres.';
+    }
+
+    if (values.confirmPassword !== values.nextPassword) {
+      errors.confirmPassword = 'Las contrasenas no coinciden.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setPasswordErrors(errors);
+      return;
+    }
+
+    if (!accessToken) {
+      setToast({ message: 'No hay sesion activa para actualizar la contrasena.', type: 'error' });
+      return;
+    }
+
+    setPasswordErrors({});
+    setSavingPassword(true);
+
+    try {
+      await changePassword(accessToken, {
+        currentPassword: values.currentPassword,
+        newPassword: values.nextPassword,
+      });
+
+      passwordForm.reset({ currentPassword: '', nextPassword: '', confirmPassword: '' });
+      setToast({ message: 'Contrasena actualizada correctamente.', type: 'success' });
+    } catch (error) {
+      setToast({ message: getApiErrorMessage(error), type: 'error' });
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
+  const onAvatarSelected = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      setToast({ message: 'Formato de imagen no valido. Usa JPG, PNG o GIF.', type: 'error' });
+      return;
+    }
+
+    const maxSizeMb = 5;
+    if (file.size > maxSizeMb * 1024 * 1024) {
+      setToast({ message: 'La imagen supera el maximo de 5MB.', type: 'error' });
+      return;
+    }
+
+    const currentUser = getStoredUser();
+    if (!currentUser?.id) {
+      setToast({ message: 'No se pudo identificar el usuario para subir foto.', type: 'error' });
+      return;
+    }
+
+    const extensionByMime: Record<string, string> = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/gif': 'gif',
+    };
+    const extension = extensionByMime[file.type] ?? 'jpg';
+    const filePath = `${currentUser.id}/avatar.${extension}`;
+
+    const { error } = await supabase.storage.from('avatars').upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: true,
+    });
+
+    if (error) {
+      setToast({ message: 'No fue posible subir la foto. Verifica bucket avatars en Supabase.', type: 'error' });
+      return;
+    }
+
+    const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+    const cacheBuster = Date.now();
+    const publicUrl = `${data.publicUrl}?v=${cacheBuster}`;
+    if (!accessToken) {
+      setToast({ message: 'No hay sesion activa para guardar el avatar.', type: 'error' });
+      return;
+    }
+
+    try {
+      const response = await updateAvatar(accessToken, publicUrl);
+
+      setAvatarName(`avatar.${extension}`);
+      setAvatarUrl(publicUrl);
+
+      const nextUser: StoredUser = {
+        ...response.user,
+        avatarUrl: publicUrl,
+      };
+
+      localStorage.setItem('qualio_user', JSON.stringify(nextUser));
+      onUserUpdated(nextUser);
+
+      setToast({ message: 'Foto de perfil actualizada correctamente.', type: 'success' });
+    } catch (apiError) {
+      setToast({ message: getApiErrorMessage(apiError), type: 'error' });
+    }
+  };
+
+  return (
+    <div className="profile-modal-root" role="presentation">
+      <button className="profile-modal-overlay" aria-label="Cerrar modal" onClick={onClose} />
+      <section className="profile-modal" role="dialog" aria-modal="true" aria-label="Perfil de usuario">
+        <header className="profile-modal-head">
+          <h2>Perfil de Usuario</h2>
+          <button type="button" className="profile-modal-close" onClick={onClose} aria-label="Cerrar">
+            ×
+          </button>
+        </header>
+
+        <div className="profile-modal-body">
+          <section className="profile-block">
+            <h3>
+              <IconUser />
+              Foto de Perfil
+            </h3>
+
+            <div className="avatar-row">
+              <div className="avatar-placeholder">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Avatar de usuario" className="avatar-image" />
+                ) : (
+                  <IconUser />
+                )}
+              </div>
+
+              <div className="avatar-actions">
+                <label className="upload-btn">
+                  Subir Foto
+                  <input
+                    type="file"
+                    accept="image/png, image/jpeg, image/gif"
+                    onChange={onAvatarSelected}
+                  />
+                </label>
+                <p>{avatarName ? `Seleccionado: ${avatarName}` : 'JPG, PNG o GIF. Maximo 5MB.'}</p>
+              </div>
+            </div>
+
+            <form className="profile-form" onSubmit={profileForm.handleSubmit(saveProfile)} noValidate>
+              <label htmlFor="profileName">Nombre visible</label>
+              <input
+                id="profileName"
+                type="text"
+                placeholder="Tu nombre"
+                {...profileForm.register('displayName', {
+                  required: true,
+                  minLength: 2,
+                })}
+              />
+
+              <label>Correo de cuenta (solo lectura)</label>
+              <div className="readonly-field">{userEmail}</div>
+            </form>
+          </section>
+
+          <hr />
+
+          <section className="profile-block">
+            <h3>
+              <IconLock />
+              Cambiar Contrasena
+            </h3>
+
+            <form className="password-form" onSubmit={passwordForm.handleSubmit(updatePassword)} noValidate>
+              <label htmlFor="currentPassword">Contrasena Actual</label>
+              <input
+                id="currentPassword"
+                type="password"
+                placeholder="Ingresa tu contrasena actual"
+                {...passwordForm.register('currentPassword')}
+              />
+              {passwordErrors.currentPassword ? <span className="field-error">{passwordErrors.currentPassword}</span> : null}
+
+              <label htmlFor="nextPassword">Nueva Contrasena</label>
+              <input
+                id="nextPassword"
+                type="password"
+                placeholder="Ingresa tu nueva contrasena"
+                {...passwordForm.register('nextPassword')}
+              />
+              {passwordErrors.nextPassword ? <span className="field-error">{passwordErrors.nextPassword}</span> : null}
+
+              <label htmlFor="confirmPasswordProfile">Confirmar Nueva Contrasena</label>
+              <input
+                id="confirmPasswordProfile"
+                type="password"
+                placeholder="Confirma tu nueva contrasena"
+                {...passwordForm.register('confirmPassword')}
+              />
+              {passwordErrors.confirmPassword ? <span className="field-error">{passwordErrors.confirmPassword}</span> : null}
+
+              <button type="submit" className="secondary-action-btn" disabled={savingPassword}>
+                {savingPassword ? 'Actualizando...' : 'Actualizar Contrasena'}
+              </button>
+            </form>
+          </section>
+        </div>
+
+        <footer className="profile-modal-footer">
+          <button type="button" className="cancel-btn" onClick={onClose}>
+            Cancelar
+          </button>
+          <button
+            type="button"
+            className="primary-save-btn"
+            onClick={profileForm.handleSubmit(saveProfile)}
+            disabled={savingProfile}
+          >
+            {savingProfile ? 'Guardando...' : 'Guardar Cambios'}
+          </button>
+        </footer>
+
+        {toast ? (
+          <div className="toast-wrap modal-toast" role="status" aria-live="polite">
+            <div className={`toast toast-${toast.type}`}>{toast.message}</div>
+          </div>
+        ) : null}
+      </section>
     </div>
   );
 }
@@ -697,6 +1077,15 @@ function IconUser() {
     <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
       <circle cx="12" cy="8" r="3" fill="none" stroke="currentColor" strokeWidth="2" />
       <path d="M5 19a7 7 0 0 1 14 0" fill="none" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+}
+
+function IconLock() {
+  return (
+    <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
+      <rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="currentColor" strokeWidth="2" />
+      <path d="M8 11V8a4 4 0 1 1 8 0v3" fill="none" stroke="currentColor" strokeWidth="2" />
     </svg>
   );
 }
