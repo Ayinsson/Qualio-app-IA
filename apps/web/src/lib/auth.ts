@@ -13,6 +13,13 @@ export type AuthResponse = {
   user: AuthUser;
 };
 
+export type SessionUserResponse = {
+  user: {
+    sub: string;
+    email: string;
+  };
+};
+
 export type LoginPayload = {
   email: string;
   password: string;
@@ -31,5 +38,15 @@ export async function register(payload: RegisterPayload): Promise<AuthResponse> 
 
 export async function login(payload: LoginPayload): Promise<AuthResponse> {
   const { data } = await api.post<AuthResponse>('/auth/login', payload);
+  return data;
+}
+
+export async function getSessionUser(accessToken: string): Promise<SessionUserResponse> {
+  const { data } = await api.get<SessionUserResponse>('/auth/me', {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
   return data;
 }

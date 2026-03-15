@@ -1,9 +1,20 @@
 import { AxiosError } from 'axios';
+import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
+import {
+  BrowserRouter,
+  Navigate,
+  NavLink,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
 import { z } from 'zod';
 
-import { login, register } from './lib/auth';
+import { getSessionUser, login, register } from './lib/auth';
 
 const loginSchema = z.object({
   email: z.string().email('Correo invalido'),
@@ -32,11 +43,77 @@ type ToastState = {
   type: ToastType;
 } | null;
 
+type ThemeMode = 'light' | 'dark';
+
+type StoredUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  emailVerified: boolean;
+};
+
 export function App() {
+  return (
+    <BrowserRouter>
+      <AppRouter />
+    </BrowserRouter>
+  );
+}
+
+function AppRouter() {
+  const [authenticated, setAuthenticated] = useState<boolean>(() => hasSession());
+  const [theme, setTheme] = useState<ThemeMode>(() => getInitialTheme());
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
+
+  const handleAuthSuccess = () => {
+    setAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    clearSession();
+    setAuthenticated(false);
+  };
+
+  const toggleTheme = () => {
+    setTheme((current) => (current === 'light' ? 'dark' : 'light'));
+  };
+
+  return (
+    <Routes>
+      <Route
+        path="/"
+        element={<Navigate to={authenticated ? '/app/dashboard' : '/auth/login'} replace />}
+      />
+      <Route
+        path="/auth/*"
+        element={
+          authenticated ? <Navigate to="/app/dashboard" replace /> : <AuthPage onAuthSuccess={handleAuthSuccess} />
+        }
+      />
+      <Route
+        path="/app/*"
+        element={
+          authenticated ? (
+            <AppShell onLogout={handleLogout} theme={theme} onToggleTheme={toggleTheme} />
+          ) : (
+            <Navigate to="/auth/login" replace />
+          )
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+function AuthPage({ onAuthSuccess }: { onAuthSuccess: () => void }) {
   const [mode, setMode] = useState<AuthMode>('login');
   const [logoFailed, setLogoFailed] = useState(false);
   const [toast, setToast] = useState<ToastState>(null);
   const [submitting, setSubmitting] = useState(false);
+  const navigate = useNavigate();
   const [loginErrors, setLoginErrors] = useState<Partial<Record<keyof LoginValues, string>>>({});
   const [registerErrors, setRegisterErrors] = useState<
     Partial<Record<keyof RegisterValues, string>>
@@ -82,12 +159,12 @@ export function App() {
     try {
       const data = await login(values);
 
-      localStorage.setItem('qualio_access_token', data.accessToken);
-      localStorage.setItem('qualio_refresh_token', data.refreshToken);
-      localStorage.setItem('qualio_user', JSON.stringify(data.user));
+      saveSession(data.accessToken, data.refreshToken, data.user);
 
       setLoginErrors({});
       showToast(`Sesion iniciada como ${data.user.email}.`, 'success');
+      onAuthSuccess();
+      navigate('/app/dashboard', { replace: true });
     } catch (error) {
       showToast(getApiErrorMessage(error), 'error');
     } finally {
@@ -117,12 +194,12 @@ export function App() {
         name: values.fullName,
       });
 
-      localStorage.setItem('qualio_access_token', data.accessToken);
-      localStorage.setItem('qualio_refresh_token', data.refreshToken);
-      localStorage.setItem('qualio_user', JSON.stringify(data.user));
+      saveSession(data.accessToken, data.refreshToken, data.user);
 
       setRegisterErrors({});
       showToast(`Cuenta creada para ${data.user.email}.`, 'success');
+      onAuthSuccess();
+      navigate('/app/dashboard', { replace: true });
     } catch (error) {
       showToast(getApiErrorMessage(error), 'error');
     } finally {
@@ -249,6 +326,429 @@ export function App() {
       ) : null}
     </main>
   );
+}
+
+function AppShell({
+  onLogout,
+  theme,
+  onToggleTheme,
+}: {
+  onLogout: () => void;
+  theme: ThemeMode;
+  onToggleTheme: () => void;
+}) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [projectsOpen, setProjectsOpen] = useState(true);
+  const [collabOpen, setCollabOpen] = useState(true);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const accessToken = localStorage.getItem('qualio_access_token');
+  const storedUser = getStoredUser();
+
+  const sessionQuery = useQuery({
+    queryKey: ['session-user', accessToken],
+    queryFn: async () => {
+      if (!accessToken) {
+        throw new Error('No hay token activo.');
+      }
+
+      return getSessionUser(accessToken);
+    },
+    enabled: Boolean(accessToken),
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/app/proyectos')) {
+      setProjectsOpen(true);
+    }
+
+    if (location.pathname.startsWith('/app/colaborar')) {
+      setCollabOpen(true);
+    }
+  }, [location.pathname]);
+
+  useEffect(() => {
+    setMenuOpen(false);
+    setProfileOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setProfileOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  const logout = () => {
+    onLogout();
+    navigate('/auth/login', { replace: true });
+  };
+
+  const closeMenu = () => {
+    setMenuOpen(false);
+  };
+
+  return (
+    <div className="app-layout">
+      <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
+        <div className="sidebar-brand">
+          <img src="/logo-menu.png" alt="Qualio" />
+          <button
+            type="button"
+            className="sidebar-close"
+            aria-label="Cerrar menu"
+            onClick={() => setMenuOpen(false)}
+          >
+            ×
+          </button>
+        </div>
+
+        <nav className="sidebar-nav">
+          <NavGroup
+            icon={<IconFolder />}
+            title="Mis Proyectos"
+            expanded={projectsOpen}
+            onToggle={() => setProjectsOpen((value) => !value)}
+            active={location.pathname.startsWith('/app/proyectos')}
+          >
+            <NavSubItem to="/app/proyectos/activos" label="Proyectos Activos" onNavigate={closeMenu} />
+            <NavSubItem to="/app/proyectos/archivados" label="Proyectos Archivados" onNavigate={closeMenu} />
+          </NavGroup>
+
+          <NavPrimaryItem to="/app/casos-prueba" label="Casos de Prueba" onNavigate={closeMenu} />
+          <NavPrimaryItem to="/app/ejecuciones" label="Ejecuciones" onNavigate={closeMenu} />
+          <NavPrimaryItem to="/app/reportes" label="Reportes" onNavigate={closeMenu} />
+
+          <NavGroup
+            icon={<IconUsers />}
+            title="Colaborar"
+            expanded={collabOpen}
+            onToggle={() => setCollabOpen((value) => !value)}
+            active={location.pathname.startsWith('/app/colaborar')}
+          >
+            <NavSubItem to="/app/colaborar/compartidos" label="Compartidos" onNavigate={closeMenu} />
+            <NavSubItem to="/app/colaborar/invitaciones" label="Invitaciones" onNavigate={closeMenu} />
+          </NavGroup>
+        </nav>
+      </aside>
+
+      {menuOpen ? <button className="sidebar-overlay" onClick={() => setMenuOpen(false)} aria-label="Cerrar menu" /> : null}
+
+      <div className="app-main">
+        <header className="topbar">
+          <button className="menu-toggle" onClick={() => setMenuOpen((value) => !value)} aria-label="Abrir menu">
+            <span />
+            <span />
+            <span />
+          </button>
+
+          <div className="topbar-search">
+            <IconSearch />
+            <input type="text" placeholder="¿Que estas buscando?" aria-label="Busqueda global" />
+          </div>
+
+          <div className="topbar-actions">
+            <button type="button" className="icon-btn" aria-label="Notificaciones">
+              <IconBell />
+            </button>
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label={theme === 'light' ? 'Activar modo oscuro' : 'Activar modo claro'}
+              onClick={onToggleTheme}
+            >
+              {theme === 'light' ? <IconMoon /> : <IconSun />}
+            </button>
+            <div className="profile-menu">
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label="Perfil"
+                aria-expanded={profileOpen}
+                onClick={() => setProfileOpen((value) => !value)}
+              >
+                <IconUser />
+              </button>
+
+              {profileOpen ? (
+                <section className="profile-popover">
+                  <strong>{storedUser?.name ?? 'Administrador'}</strong>
+                  <p>{sessionQuery.data?.user.email ?? storedUser?.email ?? 'usuario@qualio.local'}</p>
+                  <span className="role-badge">Admin de sus proyectos</span>
+                  <button type="button" className="logout-btn" onClick={logout}>
+                    Cerrar sesion
+                  </button>
+                </section>
+              ) : null}
+            </div>
+          </div>
+        </header>
+
+        <main className="content-area">
+          <Routes>
+            <Route path="dashboard" element={<DashboardView currentUser={storedUser} sessionEmail={sessionQuery.data?.user.email} />} />
+            <Route path="proyectos/activos" element={<SectionView title="Proyectos Activos" description="Aqui veras los proyectos en ejecucion y su estado general." />} />
+            <Route path="proyectos/archivados" element={<SectionView title="Proyectos Archivados" description="Consulta historicos, resultados cerrados y referencias de QA." />} />
+            <Route path="casos-prueba" element={<SectionView title="Casos de Prueba" description="Gestiona tus casos, escenarios y criterios de aceptacion." />} />
+            <Route path="ejecuciones" element={<SectionView title="Ejecuciones" description="Monitorea ejecuciones recientes, bloqueos y resultados de corrida." />} />
+            <Route path="reportes" element={<SectionView title="Reportes" description="Genera reportes visuales para seguimiento del estado de calidad." />} />
+            <Route path="colaborar/compartidos" element={<SectionView title="Compartidos" description="Encuentra elementos compartidos contigo por otros equipos." />} />
+            <Route path="colaborar/invitaciones" element={<SectionView title="Invitaciones" description="Administra invitaciones pendientes a proyectos y espacios." />} />
+            <Route path="*" element={<Navigate to="/app/dashboard" replace />} />
+          </Routes>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function DashboardView({
+  currentUser,
+  sessionEmail,
+}: {
+  currentUser: StoredUser | null;
+  sessionEmail?: string;
+}) {
+  return (
+    <section className="dashboard-view">
+      <header className="page-header">
+        <h1>Bienvenido a Qualio</h1>
+        <p>Tu tablero inicial para controlar calidad, ejecucion y colaboracion.</p>
+      </header>
+
+      <article className="owner-banner">
+        <strong>Contexto de acceso:</strong>
+        <span>
+          {currentUser?.name ?? 'Administrador'} ({sessionEmail ?? currentUser?.email ?? 'sin correo'}) - Admin de sus proyectos
+        </span>
+      </article>
+
+      <div className="summary-grid">
+        <article className="summary-card">
+          <h2>Proyectos Activos</h2>
+          <strong>8</strong>
+          <p>2 requieren atencion hoy</p>
+        </article>
+        <article className="summary-card">
+          <h2>Casos Ejecutados</h2>
+          <strong>126</strong>
+          <p>Semana en curso</p>
+        </article>
+        <article className="summary-card">
+          <h2>Tasa de Exito</h2>
+          <strong>92%</strong>
+          <p>Ultimas 24 horas</p>
+        </article>
+        <article className="summary-card">
+          <h2>Invitaciones</h2>
+          <strong>3</strong>
+          <p>Pendientes por revisar</p>
+        </article>
+      </div>
+    </section>
+  );
+}
+
+function SectionView({ title, description }: { title: string; description: string }) {
+  return (
+    <section className="section-view">
+      <header className="page-header">
+        <h1>{title}</h1>
+        <p>{description}</p>
+      </header>
+      <article className="placeholder-card">
+        <h2>Vista en preparacion</h2>
+        <p>Este modulo quedo listo en estructura visual para continuar con la implementacion funcional.</p>
+      </article>
+    </section>
+  );
+}
+
+function NavPrimaryItem({ to, label, onNavigate }: { to: string; label: string; onNavigate?: () => void }) {
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) => `nav-primary-item ${isActive ? 'active' : ''}`}
+      onClick={onNavigate}
+    >
+      {label}
+    </NavLink>
+  );
+}
+
+function NavSubItem({ to, label, onNavigate }: { to: string; label: string; onNavigate?: () => void }) {
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) => `nav-sub-item ${isActive ? 'active' : ''}`}
+      onClick={onNavigate}
+    >
+      {label}
+    </NavLink>
+  );
+}
+
+function NavGroup({
+  icon,
+  title,
+  expanded,
+  onToggle,
+  active,
+  children,
+}: {
+  icon: ReactNode;
+  title: string;
+  expanded: boolean;
+  onToggle: () => void;
+  active: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <section className="nav-group">
+      <button
+        type="button"
+        className={`nav-group-head ${active ? 'active' : ''}`}
+        onClick={onToggle}
+        aria-expanded={expanded}
+      >
+        <span className="nav-group-title">
+          {icon}
+          {title}
+        </span>
+        <IconChevron direction={expanded ? 'up' : 'down'} />
+      </button>
+
+      {expanded ? <div className="nav-group-content">{children}</div> : null}
+    </section>
+  );
+}
+
+function IconChevron({ direction }: { direction: 'up' | 'down' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={`icon icon-chevron ${direction}`} aria-hidden="true">
+      <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconFolder() {
+  return (
+    <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
+      <path d="M3 7h6l2 2h10v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" strokeWidth="2" />
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2" fill="none" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+}
+
+function IconUsers() {
+  return (
+    <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
+      <circle cx="9" cy="8" r="3" fill="none" stroke="currentColor" strokeWidth="2" />
+      <path d="M3 19a6 6 0 0 1 12 0" fill="none" stroke="currentColor" strokeWidth="2" />
+      <path d="M16 11a3 3 0 0 1 3 3" fill="none" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+}
+
+function IconSearch() {
+  return (
+    <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" strokeWidth="2" />
+      <path d="M20 20l-3.5-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconBell() {
+  return (
+    <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
+      <path d="M12 3a5 5 0 0 0-5 5v3l-2 3h14l-2-3V8a5 5 0 0 0-5-5z" fill="none" stroke="currentColor" strokeWidth="2" />
+      <path d="M10 18a2 2 0 0 0 4 0" fill="none" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+}
+
+function IconMoon() {
+  return (
+    <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
+      <path d="M18 14.5A6.5 6.5 0 0 1 9.5 6a7 7 0 1 0 8.5 8.5z" fill="none" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+}
+
+function IconSun() {
+  return (
+    <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
+      <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" strokeWidth="2" />
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M19.4 4.6l-2.1 2.1M6.7 17.3l-2.1 2.1" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconUser() {
+  return (
+    <svg viewBox="0 0 24 24" className="icon" aria-hidden="true">
+      <circle cx="12" cy="8" r="3" fill="none" stroke="currentColor" strokeWidth="2" />
+      <path d="M5 19a7 7 0 0 1 14 0" fill="none" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+}
+
+function hasSession(): boolean {
+  return Boolean(localStorage.getItem('qualio_access_token'));
+}
+
+function clearSession(): void {
+  localStorage.removeItem('qualio_access_token');
+  localStorage.removeItem('qualio_refresh_token');
+  localStorage.removeItem('qualio_user');
+}
+
+function saveSession(accessToken: string, refreshToken: string, user: unknown): void {
+  localStorage.setItem('qualio_access_token', accessToken);
+  localStorage.setItem('qualio_refresh_token', refreshToken);
+  localStorage.setItem('qualio_user', JSON.stringify(user));
+}
+
+function getInitialTheme(): ThemeMode {
+  if (typeof window === 'undefined') {
+    return 'light';
+  }
+
+  const stored = localStorage.getItem('qualio_theme');
+  if (stored === 'light' || stored === 'dark') {
+    return stored;
+  }
+
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+    ? 'dark'
+    : 'light';
+}
+
+function applyTheme(mode: ThemeMode): void {
+  document.documentElement.setAttribute('data-theme', mode);
+  localStorage.setItem('qualio_theme', mode);
+}
+
+function getStoredUser(): StoredUser | null {
+  const value = localStorage.getItem('qualio_user');
+
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(value) as StoredUser;
+  } catch {
+    return null;
+  }
 }
 
 function getApiErrorMessage(error: unknown): string {
