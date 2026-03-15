@@ -1,12 +1,22 @@
 :root {
-  --bg-1: #f5f7ff;
-  --bg-2: #e9f2ff;
-  --card: #ffffff;
-  --ink: #1d2433;
-  --ink-soft: #5a6478;
-  --border: #d8dfeb;
-  --brand: #1f6feb;
-  --brand-strong: #1256bf;
+  --color-primary: #042467;
+  --color-primary-dark: #041036;
+  --color-primary-bright: #03a7f4;
+  --color-turquoise: #057b82;
+  --color-success: #2d9b57;
+  --color-success-accent: #6aba44;
+  --color-white: #ffffff;
+  --color-gray-light: #ececec;
+  --color-gray-blue: #6a7f98;
+  --bg-1: #f4f8ff;
+  --bg-2: #eaf4ff;
+  --card: var(--color-white);
+  --ink: var(--color-primary-dark);
+  --ink-soft: var(--color-gray-blue);
+  --border: var(--color-gray-light);
+  --brand: var(--color-primary);
+  --brand-strong: var(--color-primary-dark);
+  --focus-ring: var(--color-primary-bright);
   --error: #b42318;
   color: var(--ink);
   font-family: 'Manrope', 'Segoe UI', Tahoma, sans-serif;
@@ -20,7 +30,7 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: radial-gradient(circle at 20% 10%, #ffffff, transparent 35%),
+  background: radial-gradient(circle at 20% 10%, var(--color-white), transparent 35%),
     linear-gradient(135deg, var(--bg-1), var(--bg-2));
 }
 
@@ -43,11 +53,21 @@ body {
 .auth-header h1 {
   margin: 0 0 4px;
   font-size: 2rem;
+  color: var(--color-primary);
+  text-align: center;
+}
+
+.auth-logo {
+  display: block;
+  width: min(280px, 100%);
+  height: auto;
+  margin: 0 auto 8px;
 }
 
 .auth-header p {
   margin: 0 0 16px;
   color: var(--ink-soft);
+  text-align: center;
 }
 
 .auth-toggle {
@@ -60,7 +80,8 @@ body {
 .auth-toggle button {
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: #ffffff;
+  background: var(--color-white);
+  color: var(--ink-soft);
   cursor: pointer;
   font-weight: 600;
   padding: 10px 12px;
@@ -68,7 +89,7 @@ body {
 
 .auth-toggle button.active {
   border-color: var(--brand);
-  background: #e8f0ff;
+  background: #e6f5ff;
   color: var(--brand-strong);
 }
 
@@ -90,8 +111,8 @@ body {
 }
 
 .auth-form input:focus {
-  border-color: var(--brand);
-  outline: 2px solid #b6d0ff;
+  border-color: var(--color-primary-bright);
+  outline: 2px solid var(--focus-ring);
 }
 
 .auth-form button[type='submit'] {
@@ -122,10 +143,10 @@ body {
 
 .feedback {
   margin: 14px 0 0;
-  border: 1px solid #c7dcff;
+  border: 1px solid #b6e6ea;
   border-radius: 10px;
-  background: #eef5ff;
-  color: #174ea6;
+  background: #edf9fa;
+  color: var(--color-turquoise);
   font-size: 0.92rem;
   padding: 10px 12px;
 }

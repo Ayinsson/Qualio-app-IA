@@ -28,6 +28,7 @@ type AuthMode = 'login' | 'register';
 
 export function App() {
   const [mode, setMode] = useState<AuthMode>('login');
+  const [logoFailed, setLogoFailed] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [loginErrors, setLoginErrors] = useState<Partial<Record<keyof LoginValues, string>>>({});
@@ -113,8 +114,17 @@ export function App() {
     <main className="auth-shell">
       <section className="auth-card">
         <header className="auth-header">
-          <h1>Qualio</h1>
-          <p>Arranque rapido de autenticacion para tu MVP v0.1.</p>
+          {!logoFailed ? (
+            <img
+              className="auth-logo"
+              src="/qualio-logo.png"
+              alt="Qualio"
+              onError={() => setLogoFailed(true)}
+            />
+          ) : (
+            <h1>Qualio</h1>
+          )}
+          <p>Tu Qa aliado !</p>
         </header>
 
         <div className="auth-toggle" role="tablist" aria-label="Cambiar formulario">

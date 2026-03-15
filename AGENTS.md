@@ -149,7 +149,7 @@ These commands reflect the documented stack and should be implemented in `packag
 - `README.md` should stay concise (project purpose + quick start).
 - Put detailed setup and architecture updates in `docs/`.
 - If a technical decision changes stack/tooling, update both command sections and relevant docs.
-- Use `docs/contexto-oficial-repo.md` as the documentation tiebreaker when older docs conflict.
+- Use `docs/documentacion-tecnica-estado-actual.md` as the documentation tiebreaker when older docs conflict.
 
 ## 7) Cursor and Copilot rule files
 
