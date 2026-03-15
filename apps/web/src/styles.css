@@ -937,6 +937,7 @@ body {
 
 :root[data-theme='dark'] .profile-modal-head h2,
 :root[data-theme='dark'] .profile-block h3,
+:root[data-theme='dark'] .profile-form label,
 :root[data-theme='dark'] .password-form label,
 :root[data-theme='dark'] .cancel-btn,
 :root[data-theme='dark'] .profile-modal-close {

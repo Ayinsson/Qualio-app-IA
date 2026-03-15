@@ -1142,10 +1142,20 @@ function getStoredUser(): StoredUser | null {
 
 function getApiErrorMessage(error: unknown): string {
   if (error instanceof AxiosError) {
-    const responseMessage = error.response?.data as { message?: string } | undefined;
+    const responseBody = error.response?.data as
+      | { message?: string | string[] }
+      | undefined;
 
-    if (typeof responseMessage?.message === 'string') {
-      return responseMessage.message;
+    if (Array.isArray(responseBody?.message) && responseBody.message.length > 0) {
+      return responseBody.message[0];
+    }
+
+    if (typeof responseBody?.message === 'string') {
+      return responseBody.message;
+    }
+
+    if (error.response?.status === 401) {
+      return 'Tu sesion expiro. Inicia sesion nuevamente.';
     }
 
     return 'No fue posible completar la solicitud de autenticacion.';
