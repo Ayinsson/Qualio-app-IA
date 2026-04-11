@@ -7,6 +7,8 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   const port = Number(process.env.PORT ?? 3000);
 
+  app.enableShutdownHooks();
+
   app.enableCors({
     origin: true,
     credentials: true,

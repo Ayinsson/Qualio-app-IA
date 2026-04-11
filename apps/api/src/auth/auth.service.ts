@@ -26,7 +26,8 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto, userAgent?: string, ipAddress?: string): Promise<AuthResponse> {
-    const existingUser = await this.findUserByEmail(dto.email);
+    const normalizedEmail = dto.email.trim().toLowerCase();
+    const existingUser = await this.findUserByEmail(normalizedEmail);
 
     if (existingUser) {
       throw new BadRequestException('El correo ya esta registrado.');
@@ -48,7 +49,7 @@ export class AuthService {
         locked_until
       ) VALUES (
         ${userId},
-        ${dto.email},
+        ${normalizedEmail},
         ${passwordHash},
         ${dto.name ?? null},
         ${null},
@@ -281,6 +282,8 @@ export class AuthService {
   }
 
   private async findUserByEmail(email: string): Promise<UserRecord | null> {
+    const normalizedEmail = email.trim().toLowerCase();
+
     const users = (await this.prisma.$queryRaw`
       SELECT
         id,
@@ -291,7 +294,7 @@ export class AuthService {
         is_active AS "isActive",
         email_verified AS "emailVerified"
       FROM users
-      WHERE email = ${email}
+      WHERE LOWER(email) = ${normalizedEmail}
       LIMIT 1
     `) as UserRecord[];
 

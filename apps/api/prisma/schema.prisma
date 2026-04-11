@@ -9,22 +9,64 @@ datasource db {
 }
 
 model User {
-  id            String          @id @default(cuid())
+  id            String          @id
   email         String          @unique
-  passwordHash  String
-  createdAt     DateTime        @default(now())
+  passwordHash  String          @map("password_hash")
+  avatarUrl     String?         @map("avatar_url")
+  createdAt     DateTime        @default(now()) @map("created_at")
   ownedProjects Project[]
+  projectMembers ProjectMember[]
   executions    TestExecution[]
+
+  @@map("users")
 }
 
 model Project {
-  id          String     @id @default(cuid())
+  id          String        @id @default(uuid())
   name        String
+  logoUrl     String?       @map("logo_url")
   description String?
-  ownerId     String
-  owner       User       @relation(fields: [ownerId], references: [id])
-  testCases    TestCase[]
-  createdAt   DateTime   @default(now())
+  projectType String?       @map("project_type")
+  ownerId     String        @map("owner_id")
+  status      ProjectStatus @default(ACTIVE)
+  owner       User          @relation(fields: [ownerId], references: [id])
+  members     ProjectMember[]
+  itemSequence ProjectItemSequence?
+  tasks       Task[]
+  bugs        Bug[]
+  sprints     Sprint[]
+  testCases   TestCase[]
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  @@index([ownerId], map: "idx_projects_owner_id")
+  @@index([status], map: "idx_projects_status")
+  @@index([ownerId, status], map: "idx_projects_owner_status")
+  @@map("projects")
+}
+
+model ProjectItemSequence {
+  projectId String   @id @map("project_id")
+  lastValue Int      @default(0) @map("last_value")
+  updatedAt DateTime @default(now()) @map("updated_at")
+  project   Project  @relation(fields: [projectId], references: [id])
+
+  @@map("project_item_sequences")
+}
+
+model ProjectMember {
+  id        String            @id @default(uuid())
+  projectId String            @map("project_id")
+  userId    String            @map("user_id")
+  role      ProjectMemberRole @default(MEMBER)
+  createdAt DateTime          @default(now()) @map("created_at")
+  project   Project           @relation(fields: [projectId], references: [id])
+  user      User              @relation(fields: [userId], references: [id])
+
+  @@unique([projectId, userId], map: "uq_project_members")
+  @@index([projectId], map: "idx_project_members_project")
+  @@index([userId], map: "idx_project_members_user")
+  @@map("project_members")
 }
 
 model TestCase {
@@ -51,6 +93,57 @@ model TestExecution {
   executedAt   DateTime        @default(now())
 }
 
+model Task {
+  id          String       @id @default(uuid())
+  itemKey     String?      @unique @map("item_key")
+  projectId   String       @map("project_id")
+  project     Project      @relation(fields: [projectId], references: [id])
+  title       String
+  description String?
+  priority    WorkPriority @default(MEDIUM)
+  status      TaskStatus   @default(TODO)
+  section     BacklogSection @default(GENERAL_BACKLOG)
+  position    Int
+  assignedTo  String?      @map("assigned_to")
+  dueDate     DateTime?    @map("due_date")
+  sprintId    String?      @map("sprint_id")
+  completedInSprintId String? @map("completed_in_sprint_id")
+  rolloverFromSprintId String? @map("rollover_from_sprint_id")
+  createdBy   String       @map("created_by")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  @@index([projectId], map: "idx_tasks_project")
+  @@index([projectId, section, position], map: "idx_tasks_project_section_position")
+  @@map("tasks")
+}
+
+model Bug {
+  id             String         @id @default(uuid())
+  itemKey        String?        @unique @map("item_key")
+  projectId      String         @map("project_id")
+  project        Project        @relation(fields: [projectId], references: [id])
+  title          String
+  description    String
+  priority       WorkPriority   @default(MEDIUM)
+  status         BugStatus      @default(OPEN)
+  section        BacklogSection @default(GENERAL_BACKLOG)
+  position       Int
+  environment    String?
+  expectedResult String?        @map("expected_result")
+  actualResult   String?        @map("actual_result")
+  sprintId       String?        @map("sprint_id")
+  completedInSprintId String?   @map("completed_in_sprint_id")
+  rolloverFromSprintId String?  @map("rollover_from_sprint_id")
+  reportedBy     String         @map("reported_by")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  @@index([projectId], map: "idx_bugs_project")
+  @@index([projectId, section, position], map: "idx_bugs_project_section_position")
+  @@map("bugs")
+}
+
 enum TestPriority {
   LOW
   MEDIUM
@@ -67,4 +160,61 @@ enum ExecutionResult {
   PASSED
   FAILED
   BLOCKED
+}
+
+enum WorkPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum BugStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum BacklogSection {
+  NEXT_SPRINT
+  GENERAL_BACKLOG
+  SPRINT_BOARD
+}
+
+model Sprint {
+  id        String       @id
+  projectId String       @map("project_id")
+  sequence  Int
+  name      String
+  status    SprintStatus
+  startedAt DateTime     @map("started_at")
+  closedAt  DateTime?    @map("closed_at")
+  createdBy String       @map("created_by")
+  createdAt DateTime     @default(now()) @map("created_at")
+  project   Project      @relation(fields: [projectId], references: [id])
+
+  @@index([projectId], map: "idx_sprints_project")
+  @@unique([projectId, sequence], map: "uq_sprints_project_sequence")
+  @@map("sprints")
+}
+
+enum SprintStatus {
+  ACTIVE
+  CLOSED
+}
+
+enum ProjectMemberRole {
+  ADMIN
+  MEMBER
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ARCHIVED
 }
