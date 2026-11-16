@@ -15,7 +15,9 @@
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "db:bootstrap": "prisma db execute --file ./prisma/sql/00_bootstrap_schema.sql --schema ./prisma/schema.prisma && prisma db execute --file ./prisma/sql/01_supabase_rls_realtime_storage.sql --schema ./prisma/schema.prisma",
+    "db:seed:reports": "prisma db execute --file ./prisma/sql/seed_reports_dummy_data.sql --schema ./prisma/schema.prisma"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",

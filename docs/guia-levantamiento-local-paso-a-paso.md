@@ -38,13 +38,26 @@ Desde la raiz del repo:
 npm install
 ```
 
-## 4. Inicializar tablas de autenticacion
+## 4. Inicializar base de datos (proyecto Supabase nuevo)
 
-Desde `apps/api`:
+Desde `apps/api`, con el `.env` ya apuntando al proyecto nuevo:
 
 ```bash
-npx prisma db execute --file "./prisma/sql/init_auth_postgres.sql" --schema "./prisma/schema.prisma"
+npm run db:bootstrap
 ```
+
+Esto ejecuta, en orden:
+
+1. `prisma/sql/00_bootstrap_schema.sql`: crea las 12 tablas (users, refresh_tokens, projects, project_members, project_item_sequences, project_invitations, notifications, sprints, tasks, bugs, work_item_history, work_item_attachments). Es idempotente.
+2. `prisma/sql/01_supabase_rls_realtime_storage.sql`: activa RLS en todas las tablas, publica `notifications` en Realtime y crea los buckets `avatars` (publico) y `project-assets` (privado) con sus politicas.
+
+Opcional, datos demo para reportes (requiere al menos un usuario registrado):
+
+```bash
+npm run db:seed:reports
+```
+
+Los scripts `init_*.sql` y `alter_users_add_avatar_url.sql` quedan solo como historico; para una base nueva usa unicamente los `00_` y `01_`.
 
 Si aparece error de conectividad con `:5432`, usa temporalmente el host pooler tambien en `DIRECT_URL`.
 
