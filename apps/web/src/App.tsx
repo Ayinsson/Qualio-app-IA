@@ -15,7 +15,7 @@ import {
 } from 'react-router-dom';
 import { z } from 'zod';
 
-import { changePassword, getSessionUser, login, register, updateAvatar, updateProfile } from './lib/auth';
+import { changePassword, login, register, resolveSession, updateAvatar, updateProfile } from './lib/auth';
 import {
   archiveProject,
   createProject,
@@ -479,6 +479,8 @@ function AppShell({
   const notificationsBootstrappedRef = useRef(false);
   const readAllTriggeredForOpenRef = useRef(false);
 
+  const [sessionRenewals, setSessionRenewals] = useState(0);
+
   const sessionQuery = useQuery({
     queryKey: ['session-user', accessToken],
     queryFn: async () => {
@@ -486,11 +488,45 @@ function AppShell({
         throw new Error('No hay token activo.');
       }
 
-      return getSessionUser(accessToken);
+      return resolveSession(accessToken, localStorage.getItem('qualio_refresh_token'));
     },
     enabled: Boolean(accessToken),
     retry: false,
   });
+  const sessionResolution = sessionQuery.data;
+  const sessionUser = sessionResolution?.status === 'valid' ? sessionResolution.session : undefined;
+  const handledSessionResolutionRef = useRef<typeof sessionResolution>(undefined);
+
+  // A stored session the API no longer accepts (expired, signed with another secret, or a
+  // deleted user) must not leave the user inside an app where every request fails.
+  useEffect(() => {
+    if (!sessionResolution || handledSessionResolutionRef.current === sessionResolution) {
+      return;
+    }
+
+    handledSessionResolutionRef.current = sessionResolution;
+
+    if (sessionResolution.status === 'invalid') {
+      queryClient.clear();
+      onLogout();
+      return;
+    }
+
+    if (sessionResolution.status === 'refreshed') {
+      const { accessToken: nextAccessToken, refreshToken, user } = sessionResolution.auth;
+      saveSession(nextAccessToken, refreshToken, user);
+      setStoredUser(user);
+      setSessionRenewals((count) => count + 1);
+    }
+  }, [sessionResolution, onLogout, queryClient]);
+
+  // After a renewal the component re-renders with the new token; refetch data that may
+  // have failed with the expired one.
+  useEffect(() => {
+    if (sessionRenewals > 0) {
+      void queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== 'session-user' });
+    }
+  }, [sessionRenewals, queryClient]);
 
   const activeProjectsQuery = useQuery({
     queryKey: ['projects', 'ACTIVE', 'sidebar'],
@@ -561,7 +597,7 @@ function AppShell({
   const markingAllNotificationsRead = readAllNotificationsMutation.isPending;
 
   const notificationsFeed = useMemo(() => notificationsQuery.data ?? [], [notificationsQuery.data]);
-  const currentUserId = storedUser?.id ?? sessionQuery.data?.user.sub ?? null;
+  const currentUserId = storedUser?.id ?? sessionUser?.user.sub ?? null;
   const unreadNotifications = notificationsFeed.filter((item) => !item.isRead).length;
   const notificationCounts = {
     ALL: notificationsFeed.length,
@@ -936,7 +972,7 @@ function AppShell({
               {profileOpen ? (
                 <section className="profile-popover">
                   <strong>{storedUser?.name ?? 'Administrador'}</strong>
-                  <p>{sessionQuery.data?.user.email ?? storedUser?.email ?? 'usuario@qualio.local'}</p>
+                  <p>{sessionUser?.user.email ?? storedUser?.email ?? 'usuario@qualio.local'}</p>
                   <span className="role-badge">Admin de sus proyectos</span>
                   <button
                     type="button"
@@ -959,7 +995,7 @@ function AppShell({
 
         <main className="content-area">
           <Routes>
-            <Route path="dashboard" element={<DashboardView currentUser={storedUser} sessionEmail={sessionQuery.data?.user.email} />} />
+            <Route path="dashboard" element={<DashboardView currentUser={storedUser} sessionEmail={sessionUser?.user.email} />} />
             <Route path="proyectos/nuevo" element={<ProjectsActiveView createModalRoute />} />
             <Route path="proyectos/activos" element={<ProjectsActiveView />} />
             <Route path="proyectos/archivados" element={<ProjectsArchivedView />} />
@@ -1098,7 +1134,7 @@ function AppShell({
         <ProfileModal
           accessToken={accessToken}
           userName={storedUser?.name ?? 'Administrador'}
-          userEmail={sessionQuery.data?.user.email ?? storedUser?.email ?? 'usuario@qualio.local'}
+          userEmail={sessionUser?.user.email ?? storedUser?.email ?? 'usuario@qualio.local'}
           avatarUrl={storedUser?.avatarUrl ?? null}
           onUserUpdated={setStoredUser}
           onClose={() => setProfileModalOpen(false)}

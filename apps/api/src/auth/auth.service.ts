@@ -133,6 +133,20 @@ export class AuthService {
     return { success: true };
   }
 
+  /**
+   * Confirms that a signed access token still belongs to an existing, active user.
+   * A valid signature alone is not enough: the user may have been deleted or deactivated.
+   */
+  async getSessionUser(payload: AuthPayload): Promise<AuthPayload> {
+    const user = await this.findUserById(payload.sub);
+
+    if (!user || !this.isTruthy(user.isActive)) {
+      throw new UnauthorizedException('Sesion invalida.');
+    }
+
+    return { sub: user.id, email: user.email };
+  }
+
   async updateProfile(userId: string, dto: UpdateProfileDto): Promise<{ user: PublicUser }> {
     const user = await this.findUserById(userId);
 

@@ -1,3 +1,5 @@
+import { AxiosError } from 'axios';
+
 import { api } from './api';
 
 export type AuthUser = {
@@ -64,6 +66,63 @@ export async function getSessionUser(accessToken: string): Promise<SessionUserRe
   });
 
   return data;
+}
+
+export async function refreshSession(refreshToken: string): Promise<AuthResponse> {
+  const { data } = await api.post<AuthResponse>('/auth/refresh', { refreshToken });
+  return data;
+}
+
+/**
+ * Outcome of checking a stored session against the API:
+ * - `valid`: the access token is accepted as is.
+ * - `refreshed`: the access token was rejected but the refresh token produced new tokens.
+ * - `invalid`: neither token is accepted; the stored session must be discarded.
+ */
+export type SessionResolution =
+  | { status: 'valid'; session: SessionUserResponse }
+  | { status: 'refreshed'; auth: AuthResponse }
+  | { status: 'invalid' };
+
+function isRejectedCredential(error: unknown): boolean {
+  if (!(error instanceof AxiosError)) {
+    return false;
+  }
+
+  const status = error.response?.status;
+  // 400 covers a malformed refresh token rejected by DTO validation.
+  return status === 401 || status === 400;
+}
+
+/**
+ * Validates the stored access token and, if the API rejects it, tries the refresh token once.
+ * Network or server errors are rethrown so a temporary outage never logs the user out.
+ */
+export async function resolveSession(
+  accessToken: string,
+  refreshToken: string | null,
+): Promise<SessionResolution> {
+  try {
+    return { status: 'valid', session: await getSessionUser(accessToken) };
+  } catch (error) {
+    if (!(error instanceof AxiosError) || error.response?.status !== 401) {
+      throw error;
+    }
+  }
+
+  if (!refreshToken) {
+    return { status: 'invalid' };
+  }
+
+  try {
+    return { status: 'refreshed', auth: await refreshSession(refreshToken) };
+  } catch (error) {
+    if (isRejectedCredential(error)) {
+      return { status: 'invalid' };
+    }
+
+    throw error;
+  }
 }
 
 export async function updateProfile(

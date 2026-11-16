@@ -61,14 +61,14 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  me(@Req() req: Request & { user?: AuthPayload }): { user: AuthPayload } {
+  async me(@Req() req: Request & { user?: AuthPayload }): Promise<{ user: AuthPayload }> {
     const { user } = req;
 
     if (!user) {
       throw new UnauthorizedException('Sesion invalida.');
     }
 
-    return { user };
+    return { user: await this.authService.getSessionUser(user) };
   }
 
   @Patch('profile')
