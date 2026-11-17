@@ -79,6 +79,8 @@ body {
 }
 
 :root[data-theme='dark'] .auth-shell {
+  /* Rojo de error legible sobre el grafito (el de modo claro no alcanza 4,5:1). */
+  --error: #f28b82;
   /* Mismo grafito y bordes que el interior de la app. */
   --auth-line: #2b313c;
   --auth-field: #13161c;
@@ -511,6 +513,18 @@ body {
 .auth-rules li.is-met .auth-rule-mark {
   border-color: var(--color-success);
   background: var(--color-success);
+  color: #ffffff;
+}
+
+/* Regla incumplida tras enviar: color, ✕ y texto para lectores de pantalla (no solo color). */
+.auth-rules li.is-failed {
+  color: var(--error);
+  font-weight: 500;
+}
+
+.auth-rules li.is-failed .auth-rule-mark {
+  border-color: var(--error);
+  background: var(--error);
   color: #ffffff;
 }
 

@@ -100,6 +100,14 @@ const authRunCases: Array<{ id: string; name: string }> = [
   { id: 'CP-04', name: 'Cerrar sprint' },
 ];
 
+function CrossIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true" focusable="false">
+      <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function CheckIcon() {
   return (
     <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false">
@@ -382,17 +390,23 @@ function AuthPage({
   const passwordsMatch = registerConfirmValue.length > 0 && registerPasswordValue === registerConfirmValue;
   const passwordInputType = showPassword ? 'text' : 'password';
 
-  const passwordToggle = (
+  // Un solo estado para mostrar u ocultar: en el registro, el botón de cada campo muestra ambas
+  // contraseñas, así el usuario puede compararlas.
+  const passwordToggle = (what: string, controls: string) => (
     <button
       type="button"
       className="auth-reveal"
       onClick={() => setShowPassword((current) => !current)}
-      aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+      aria-label={`${showPassword ? 'Ocultar' : 'Mostrar'} ${what}`}
       aria-pressed={showPassword}
+      aria-controls={controls}
     >
       <EyeIcon crossed={showPassword} />
     </button>
   );
+
+  // Tras un envío con errores, la regla que no se cumple se marca en la lista en lugar de repetirse bajo el campo.
+  const ruleState = (met: boolean, failed: boolean) => (met ? 'is-met' : failed ? 'is-failed' : '');
 
   return (
     <main className="auth-shell">
@@ -505,7 +519,7 @@ function AuthPage({
                       aria-describedby={loginErrors.password ? 'password-error' : undefined}
                       {...loginForm.register('password')}
                     />
-                    {passwordToggle}
+                    {passwordToggle('contraseña', 'password')}
                   </div>
                   {loginErrors.password ? (
                     <span id="password-error" className="field-error">
@@ -574,41 +588,41 @@ function AuthPage({
                       aria-describedby="password-rules"
                       {...registerForm.register('password')}
                     />
-                    {passwordToggle}
+                    {passwordToggle('las contraseñas', 'registerPassword confirmPassword')}
                   </div>
-                  {registerErrors.password ? (
-                    <span className="field-error">{registerErrors.password}</span>
-                  ) : null}
                 </div>
 
                 <div className="auth-field">
                   <label htmlFor="confirmPassword">Repite la contraseña</label>
-                  <input
-                    id="confirmPassword"
-                    type={passwordInputType}
-                    autoComplete="new-password"
-                    aria-invalid={Boolean(registerErrors.confirmPassword)}
-                    aria-describedby="password-rules"
-                    {...registerForm.register('confirmPassword')}
-                  />
-                  {registerErrors.confirmPassword ? (
-                    <span className="field-error">{registerErrors.confirmPassword}</span>
-                  ) : null}
+                  <div className="auth-input-wrap">
+                    <input
+                      id="confirmPassword"
+                      type={passwordInputType}
+                      autoComplete="new-password"
+                      aria-invalid={Boolean(registerErrors.confirmPassword)}
+                      aria-describedby="password-rules"
+                      {...registerForm.register('confirmPassword')}
+                    />
+                    {passwordToggle('las contraseñas', 'registerPassword confirmPassword')}
+                  </div>
                 </div>
 
                 <ul id="password-rules" className="auth-rules">
-                  <li className={passwordLongEnough ? 'is-met' : ''}>
-                    <span className="auth-rule-mark">
-                      <CheckIcon />
-                    </span>
-                    Al menos 8 caracteres
-                  </li>
-                  <li className={passwordsMatch ? 'is-met' : ''}>
-                    <span className="auth-rule-mark">
-                      <CheckIcon />
-                    </span>
-                    Las dos contraseñas coinciden
-                  </li>
+                  {(
+                    [
+                      ['Al menos 8 caracteres', passwordLongEnough, Boolean(registerErrors.password)],
+                      ['Las dos contraseñas coinciden', passwordsMatch, Boolean(registerErrors.confirmPassword)],
+                    ] as const
+                  ).map(([rule, met, failed]) => {
+                    const state = ruleState(met, failed);
+                    return (
+                      <li key={rule} className={state}>
+                        <span className="auth-rule-mark">{state === 'is-failed' ? <CrossIcon /> : <CheckIcon />}</span>
+                        {state === 'is-failed' ? <span className="sr-only">Falta: </span> : null}
+                        {rule}
+                      </li>
+                    );
+                  })}
                 </ul>
 
                 <button type="submit" className="auth-submit" disabled={submitting}>
