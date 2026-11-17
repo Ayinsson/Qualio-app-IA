@@ -1435,11 +1435,40 @@ function ProjectDetailView() {
     );
   };
 
+  // Un movimiento del backlog solo se anuncia como hecho cuando el servidor lo confirma; si falla,
+  // se restaura la lista anterior y se avisa, para que el usuario no crea que se movió.
+  type BacklogMovePayload = {
+    id: string;
+    section: BacklogSection;
+    targetPosition: number;
+    displayKey: string;
+    announce: boolean;
+  };
+  type BacklogMoveContext = { previous?: Task[] | Bug[] };
+
+  const sectionLabel = (section: BacklogSection) => (section === 'nextSprint' ? 'Próximo Sprint' : 'Backlog general');
+
+  const onBacklogMoveSuccess = (payload: BacklogMovePayload) => {
+    if (payload.announce) {
+      setToast({ message: `${payload.displayKey} se movió a ${sectionLabel(payload.section)}.`, type: 'success' });
+    }
+  };
+
+  const onBacklogMoveError = (key: 'tasks' | 'bugs', error: unknown, payload: BacklogMovePayload, context?: BacklogMoveContext) => {
+    if (context?.previous) {
+      queryClient.setQueryData([key, projectId], context.previous);
+    }
+    setToast({
+      message: `No pudimos mover ${payload.displayKey}; volvió a su lugar. ${getApiErrorMessage(error)}`,
+      type: 'error',
+    });
+  };
+
   const moveTaskMutation = useMutation({
     // Mismo ámbito para tareas y bugs: los movimientos se envían en fila, en el orden en que
     // se hicieron. Si viajan a la vez, el servidor puede aplicarlos al revés.
     scope: { id: `backlog-move-${projectId}` },
-    mutationFn: async (payload: { id: string; section: BacklogSection; targetPosition: number }) => {
+    mutationFn: async (payload: BacklogMovePayload) => {
       if (!accessToken) {
         throw new Error('No hay sesión activa.');
       }
@@ -1451,8 +1480,9 @@ function ProjectDetailView() {
     },
     // Actualización optimista: cancelamos recargas en curso para que una respuesta vieja
     // (de un movimiento anterior) no pise este cambio mientras llega la confirmación.
-    onMutate: async (payload) => {
+    onMutate: async (payload): Promise<BacklogMoveContext> => {
       await queryClient.cancelQueries({ queryKey: ['tasks', projectId] });
+      const previous = queryClient.getQueryData<Task[]>(['tasks', projectId]);
       queryClient.setQueryData<Task[]>(['tasks', projectId], (current) =>
         current?.map((item) =>
           item.id === payload.id
@@ -1460,7 +1490,10 @@ function ProjectDetailView() {
             : item,
         ),
       );
+      return { previous };
     },
+    onSuccess: (_result, payload) => onBacklogMoveSuccess(payload),
+    onError: (error, payload, context) => onBacklogMoveError('tasks', error, payload, context),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
     },
@@ -1470,7 +1503,7 @@ function ProjectDetailView() {
     // Mismo ámbito para tareas y bugs: los movimientos se envían en fila, en el orden en que
     // se hicieron. Si viajan a la vez, el servidor puede aplicarlos al revés.
     scope: { id: `backlog-move-${projectId}` },
-    mutationFn: async (payload: { id: string; section: BacklogSection; targetPosition: number }) => {
+    mutationFn: async (payload: BacklogMovePayload) => {
       if (!accessToken) {
         throw new Error('No hay sesión activa.');
       }
@@ -1482,8 +1515,9 @@ function ProjectDetailView() {
     },
     // Actualización optimista: cancelamos recargas en curso para que una respuesta vieja
     // (de un movimiento anterior) no pise este cambio mientras llega la confirmación.
-    onMutate: async (payload) => {
+    onMutate: async (payload): Promise<BacklogMoveContext> => {
       await queryClient.cancelQueries({ queryKey: ['bugs', projectId] });
+      const previous = queryClient.getQueryData<Bug[]>(['bugs', projectId]);
       queryClient.setQueryData<Bug[]>(['bugs', projectId], (current) =>
         current?.map((item) =>
           item.id === payload.id
@@ -1491,7 +1525,10 @@ function ProjectDetailView() {
             : item,
         ),
       );
+      return { previous };
     },
+    onSuccess: (_result, payload) => onBacklogMoveSuccess(payload),
+    onError: (error, payload, context) => onBacklogMoveError('bugs', error, payload, context),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['bugs', projectId] });
     },
@@ -2003,13 +2040,14 @@ function ProjectDetailView() {
       })),
   ];
 
-  const persistMove = (item: BacklogItem, section: BacklogSection, targetPosition: number) => {
+  const persistMove = (item: BacklogItem, section: BacklogSection, targetPosition: number, announce = false) => {
+    const payload = { id: item.entityId, section, targetPosition, displayKey: item.displayKey, announce };
     if (item.itemType === 'task') {
-      moveTaskMutation.mutate({ id: item.entityId, section, targetPosition });
+      moveTaskMutation.mutate(payload);
       return;
     }
 
-    moveBugMutation.mutate({ id: item.entityId, section, targetPosition });
+    moveBugMutation.mutate(payload);
   };
 
   const composeBacklog = (nextSprint: BacklogItem[], general: BacklogItem[]): BacklogItem[] => {
@@ -2029,12 +2067,8 @@ function ProjectDetailView() {
     const target = targetSection === 'nextSprint' ? nextSprint : general;
     target.push({ ...source, section: targetSection });
     setBacklogItems(composeBacklog(nextSprint, general));
-    persistMove(source, targetSection, target.length - 1);
+    persistMove(source, targetSection, target.length - 1, true);
     setBacklogDropFlashItemId(source.id);
-    setToast({
-      message: `${source.displayKey} se movió a ${targetSection === 'nextSprint' ? 'Próximo Sprint' : 'Backlog general'}.`,
-      type: 'success',
-    });
   };
 
   const handleDropInto = (targetSection: BacklogSection) => {
