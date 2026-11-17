@@ -1,0 +1,732 @@
+/*
+ * Sistema base de Qualio (Fase 0).
+ * Tokens con prefijo --q-* y clases con prefijo .q-* para convivir con los estilos
+ * existentes mientras cada vista se migra en su propia fase.
+ *
+ * Principios:
+ * - El color se reserva para el estado (pendiente, en progreso, bloqueado, completado, bug abierto).
+ * - La prioridad se muestra con barras de señal, sin color.
+ * - Bordes en vez de sombras; la sombra solo para lo que flota (modales, menús).
+ */
+
+:root {
+  /* Marca */
+  --q-navy: #041036;
+  --q-blue: #042467;
+  --q-cyan: #03a7f4;
+  --q-teal: #057b82;
+
+  /* Superficies y texto */
+  --q-bg: #f4f8ff;
+  --q-surface: #ffffff;
+  --q-surface-2: #eef3fb;
+  --q-line: #d6e0ef;
+  --q-line-strong: #b9c8de;
+  --q-ink: #041036;
+  --q-ink-soft: #5b6f88;
+  --q-ink-muted: #8697ad;
+
+  /* Acciones */
+  --q-primary: var(--q-blue);
+  --q-primary-hover: var(--q-navy);
+  --q-on-primary: #ffffff;
+  --q-focus: var(--q-cyan);
+  --q-link: var(--q-teal);
+
+  /* Estados (texto / fondo) */
+  --q-ok: #2d9b57;
+  --q-ok-bg: #e7f5ec;
+  --q-run: #0a6fae;
+  --q-run-bg: #e3f3fd;
+  --q-blocked: #a86200;
+  --q-blocked-bg: #fdf1de;
+  --q-bad: #c2413a;
+  --q-bad-bg: #fbe9e7;
+  --q-neutral: #5b6f88;
+  --q-neutral-bg: #edf1f7;
+
+  /* Tipografía: Onest, escala ~1,2 desde 16 px */
+  --q-font: 'Onest', 'Segoe UI', Tahoma, sans-serif;
+  --q-text-xs: 0.75rem; /* 12 */
+  --q-text-sm: 0.8125rem; /* 13 */
+  --q-text-md: 0.875rem; /* 14: controles */
+  --q-text-base: 1rem; /* 16 */
+  --q-text-lg: 1.1875rem; /* 19 */
+  --q-text-xl: 1.4375rem; /* 23 */
+  --q-text-2xl: 1.75rem; /* 28 */
+  --q-text-3xl: 2.0625rem; /* 33 */
+
+  /* Espacios (base 4 px) */
+  --q-space-1: 4px;
+  --q-space-2: 8px;
+  --q-space-3: 12px;
+  --q-space-4: 16px;
+  --q-space-5: 24px;
+  --q-space-6: 32px;
+  --q-space-7: 48px;
+  --q-space-8: 64px;
+
+  /* Radios según jerarquía */
+  --q-radius-sm: 6px;
+  --q-radius-md: 8px;
+  --q-radius-lg: 12px;
+  --q-radius-xl: 16px;
+  --q-radius-pill: 999px;
+
+  /* Elevación: solo para elementos flotantes */
+  --q-shadow-float: 0 16px 40px rgba(4, 16, 54, 0.18), 0 2px 6px rgba(4, 16, 54, 0.08);
+}
+
+:root[data-theme='dark'] {
+  /* Grafito neutro: el cian de la marca resalta en vez de perderse entre azules. */
+  --q-bg: #0d1015;
+  --q-surface: #13161c;
+  --q-surface-2: #1a1e26;
+  --q-line: #252a34;
+  --q-line-strong: #343b48;
+  --q-ink: #e8ecf4;
+  --q-ink-soft: #a6b0c2;
+  --q-ink-muted: #828c9f;
+
+  --q-primary: var(--q-cyan);
+  --q-primary-hover: #4cc3f7;
+  --q-on-primary: var(--q-navy);
+  --q-link: #4cc3f7;
+
+  --q-ok: #7fd49c;
+  --q-ok-bg: rgba(45, 155, 87, 0.18);
+  --q-run: #5cc6f8;
+  --q-run-bg: rgba(3, 167, 244, 0.16);
+  --q-blocked: #f2b65a;
+  --q-blocked-bg: rgba(242, 182, 90, 0.15);
+  --q-bad: #f28b82;
+  --q-bad-bg: rgba(242, 139, 130, 0.15);
+  --q-neutral: #b8c1d1;
+  --q-neutral-bg: rgba(166, 176, 194, 0.14);
+
+  --q-shadow-float: 0 20px 50px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
+
+  /* Vidrio: solo para lo que flota sobre el contenido. */
+  --q-glass-bg: rgba(24, 28, 37, 0.84);
+  --q-glass-bar: rgba(13, 16, 21, 0.6);
+  --q-glass-line: rgba(255, 255, 255, 0.1);
+  --q-glass-blur: blur(22px) saturate(150%);
+  --q-scrim: rgba(5, 7, 10, 0.55);
+}
+
+/* Texto solo para lectores de pantalla */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+  padding: 0;
+  margin: -1px;
+}
+
+/* ---------- Botón ---------- */
+.q-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--q-space-2);
+  height: 40px;
+  padding: 0 var(--q-space-4);
+  border: 1px solid transparent;
+  border-radius: var(--q-radius-md);
+  font-family: var(--q-font);
+  font-size: var(--q-text-md);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.q-btn--sm {
+  height: 32px;
+  padding: 0 var(--q-space-3);
+  font-size: var(--q-text-sm);
+}
+
+.q-btn--block {
+  width: 100%;
+}
+
+.q-btn--primary {
+  background: var(--q-primary);
+  color: var(--q-on-primary);
+}
+
+.q-btn--primary:hover:not(:disabled) {
+  background: var(--q-primary-hover);
+}
+
+.q-btn--secondary {
+  border-color: var(--q-line);
+  background: var(--q-surface);
+  color: var(--q-ink);
+}
+
+.q-btn--secondary:hover:not(:disabled) {
+  border-color: var(--q-line-strong);
+  background: var(--q-surface-2);
+}
+
+.q-btn--ghost {
+  background: transparent;
+  color: var(--q-ink);
+}
+
+.q-btn--ghost:hover:not(:disabled) {
+  background: var(--q-surface-2);
+}
+
+.q-btn--danger {
+  border-color: var(--q-bad);
+  background: transparent;
+  color: var(--q-bad);
+}
+
+.q-btn--danger:hover:not(:disabled) {
+  background: var(--q-bad-bg);
+}
+
+.q-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.q-btn[aria-busy='true'] {
+  cursor: progress;
+}
+
+.q-btn:focus-visible,
+.q-icon-btn:focus-visible {
+  outline: 2px solid var(--q-focus);
+  outline-offset: 2px;
+}
+
+.q-btn svg {
+  flex: none;
+}
+
+/* ---------- Campos ---------- */
+.q-field {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  font-family: var(--q-font);
+}
+
+.q-field__label {
+  color: var(--q-ink);
+  font-size: var(--q-text-sm);
+  font-weight: 500;
+}
+
+.q-field__optional {
+  margin-left: 4px;
+  color: var(--q-ink-muted);
+  font-weight: 400;
+}
+
+.q-field__hint {
+  color: var(--q-ink-soft);
+  font-size: var(--q-text-xs);
+}
+
+.q-field__error {
+  color: var(--q-bad);
+  font-size: var(--q-text-xs);
+  font-weight: 500;
+}
+
+.q-input,
+.q-select,
+.q-textarea {
+  width: 100%;
+  border: 1px solid var(--q-line);
+  border-radius: var(--q-radius-md);
+  background: var(--q-surface);
+  color: var(--q-ink);
+  font-family: var(--q-font);
+  font-size: var(--q-text-md);
+}
+
+.q-input,
+.q-select {
+  height: 40px;
+  padding: 0 var(--q-space-3);
+}
+
+.q-textarea {
+  min-height: 96px;
+  padding: 10px var(--q-space-3);
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.q-input::placeholder,
+.q-textarea::placeholder {
+  color: var(--q-ink-muted);
+}
+
+.q-input:focus,
+.q-select:focus,
+.q-textarea:focus {
+  border-color: var(--q-focus);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(3, 167, 244, 0.22);
+}
+
+.q-input[aria-invalid='true'],
+.q-select[aria-invalid='true'],
+.q-textarea[aria-invalid='true'] {
+  border-color: var(--q-bad);
+}
+
+/* ---------- Estado ---------- */
+.q-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 9px 0 8px;
+  border-radius: var(--q-radius-pill);
+  font-family: var(--q-font);
+  font-size: var(--q-text-xs);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.q-status::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.q-status--neutral {
+  background: var(--q-neutral-bg);
+  color: var(--q-neutral);
+}
+
+.q-status--running {
+  background: var(--q-run-bg);
+  color: var(--q-run);
+}
+
+.q-status--blocked {
+  background: var(--q-blocked-bg);
+  color: var(--q-blocked);
+}
+
+.q-status--success {
+  background: var(--q-ok-bg);
+  color: var(--q-ok);
+}
+
+.q-status--danger {
+  background: var(--q-bad-bg);
+  color: var(--q-bad);
+}
+
+/* ---------- Prioridad (barras de señal) ---------- */
+.q-priority {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--q-ink-soft);
+  font-family: var(--q-font);
+  font-size: var(--q-text-xs);
+}
+
+.q-priority__bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+}
+
+.q-priority__bars span {
+  width: 3px;
+  border-radius: 1px;
+  background: var(--q-line);
+}
+
+.q-priority__bars span:nth-child(1) {
+  height: 5px;
+}
+
+.q-priority__bars span:nth-child(2) {
+  height: 8px;
+}
+
+.q-priority__bars span:nth-child(3) {
+  height: 12px;
+}
+
+.q-priority__bars span.is-on {
+  background: var(--q-ink);
+}
+
+/* ---------- Clave de ítem ---------- */
+.q-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--q-ink-soft);
+  font-family: var(--q-font);
+  font-size: var(--q-text-xs);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.q-key--bug svg {
+  color: var(--q-bad);
+}
+
+.q-key--task svg {
+  color: var(--q-run);
+}
+
+/* ---------- Avatar ---------- */
+.q-avatar {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  color: #ffffff;
+  font-family: var(--q-font);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.q-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ---------- Tarjeta ---------- */
+.q-card {
+  border: 1px solid var(--q-line);
+  border-radius: var(--q-radius-lg);
+  background: var(--q-surface);
+  color: var(--q-ink);
+  font-family: var(--q-font);
+}
+
+.q-card--pad {
+  padding: var(--q-space-4);
+}
+
+.q-card--interactive {
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.q-card--interactive:hover {
+  border-color: var(--q-line-strong);
+}
+
+.q-card--interactive:focus-visible {
+  outline: 2px solid var(--q-focus);
+  outline-offset: 2px;
+}
+
+/* ---------- Modal ---------- */
+.q-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  padding: var(--q-space-4);
+  background: rgba(4, 16, 54, 0.5);
+}
+
+.q-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100%);
+  max-height: calc(100vh - 32px);
+  border: 1px solid var(--q-line);
+  border-radius: var(--q-radius-xl);
+  background: var(--q-surface);
+  box-shadow: var(--q-shadow-float);
+  color: var(--q-ink);
+  font-family: var(--q-font);
+}
+
+.q-modal--lg {
+  width: min(880px, 100%);
+}
+
+.q-modal__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--q-space-3);
+  padding: var(--q-space-5) var(--q-space-5) var(--q-space-3);
+}
+
+.q-modal__title {
+  flex: 1;
+  margin: 0;
+  font-size: var(--q-text-lg);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.q-modal__aside {
+  display: flex;
+  align-items: center;
+  gap: var(--q-space-2);
+  min-height: 28px;
+}
+
+.q-modal__body {
+  overflow-y: auto;
+  padding: var(--q-space-2) var(--q-space-5) var(--q-space-5);
+}
+
+.q-modal__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--q-space-2);
+  padding: var(--q-space-4) var(--q-space-5);
+  border-top: 1px solid var(--q-line);
+}
+
+.q-icon-btn {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--q-radius-md);
+  background: transparent;
+  color: var(--q-ink-soft);
+  cursor: pointer;
+}
+
+.q-icon-btn:hover {
+  background: var(--q-surface-2);
+  color: var(--q-ink);
+}
+
+/* ---------- Estado vacío ---------- */
+.q-empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--q-space-2);
+  padding: var(--q-space-7) var(--q-space-5);
+  color: var(--q-ink);
+  font-family: var(--q-font);
+  text-align: center;
+}
+
+.q-empty__icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: var(--q-space-2);
+  border-radius: var(--q-radius-lg);
+  background: var(--q-surface-2);
+  color: var(--q-ink-soft);
+}
+
+.q-empty__art {
+  display: block;
+  width: min(320px, 100%);
+  margin-bottom: var(--q-space-1);
+}
+
+.q-empty__art img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Misma especificidad que `.q-empty__art img` (o más), para que de verdad oculten. */
+.q-empty__art .q-empty__art-dark,
+:root[data-theme='dark'] .q-empty__art .q-empty__art-light {
+  display: none;
+}
+
+:root[data-theme='dark'] .q-empty__art .q-empty__art-dark {
+  display: block;
+}
+
+.q-empty--illustrated {
+  padding-top: var(--q-space-5);
+}
+
+.q-empty--illustrated .q-empty__action {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--q-space-2);
+}
+
+.q-empty__title {
+  margin: 0;
+  font-size: var(--q-text-lg);
+  font-weight: 700;
+}
+
+.q-empty__text {
+  max-width: 44ch;
+  margin: 0;
+  color: var(--q-ink-soft);
+  font-size: var(--q-text-md);
+  line-height: 1.5;
+}
+
+.q-empty__action {
+  margin-top: var(--q-space-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .q-btn,
+  .q-card--interactive {
+    transition: none;
+  }
+}
+
+/* ---------- Avisos (toast) ---------- */
+.q-toast-region {
+  position: fixed;
+  right: var(--q-space-4);
+  bottom: var(--q-space-4);
+  z-index: 1300;
+  display: grid;
+  gap: var(--q-space-2);
+  width: min(380px, calc(100vw - 32px));
+}
+
+.q-toast {
+  display: flex;
+  align-items: center;
+  gap: var(--q-space-2);
+  padding: 10px 8px 10px 14px;
+  border: 1px solid var(--q-line);
+  border-left-width: 4px;
+  border-radius: var(--q-radius-md);
+  background: var(--q-surface);
+  box-shadow: var(--q-shadow-float);
+  color: var(--q-ink);
+  font-family: var(--q-font);
+  font-size: var(--q-text-md);
+}
+
+.q-toast--success {
+  border-left-color: var(--q-ok);
+}
+
+.q-toast--error {
+  border-left-color: var(--q-bad);
+}
+
+.q-toast--info {
+  border-left-color: var(--q-focus);
+}
+
+.q-toast__text {
+  flex: 1;
+  line-height: 1.4;
+}
+
+/* ---------- Vidrio (solo modo oscuro) ----------
+ * El contenido de trabajo (tarjetas, listas, tablas) se queda sólido para leer bien.
+ * Solo lo que flota sobre él es vidrio, y así tiene algo real que desenfocar detrás.
+ */
+:root[data-theme='dark'] .ql-sidebar,
+:root[data-theme='dark'] .ql-topbar {
+  -webkit-backdrop-filter: var(--q-glass-blur);
+  backdrop-filter: var(--q-glass-blur);
+}
+
+:root[data-theme='dark'] .ql-topbar {
+  border-bottom-color: var(--q-glass-line);
+  background: var(--q-glass-bar);
+}
+
+:root[data-theme='dark'] .q-modal,
+:root[data-theme='dark'] .ql-cmd,
+:root[data-theme='dark'] .ql-notifications,
+:root[data-theme='dark'] .ql-user-menu,
+:root[data-theme='dark'] .qx-menu-list,
+:root[data-theme='dark'] .qp-menu-list,
+:root[data-theme='dark'] .q-toast {
+  border-color: var(--q-glass-line);
+  background: var(--q-glass-bg);
+  -webkit-backdrop-filter: var(--q-glass-blur);
+  backdrop-filter: var(--q-glass-blur);
+}
+
+/* Un borde de luz arriba: el canto del vidrio. */
+:root[data-theme='dark'] .q-modal,
+:root[data-theme='dark'] .ql-cmd {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), var(--q-shadow-float);
+}
+
+:root[data-theme='dark'] .q-modal-backdrop,
+:root[data-theme='dark'] .ql-cmd-backdrop,
+:root[data-theme='dark'] .ql-panel-backdrop {
+  background: var(--q-scrim);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+/* Sin soporte de desenfoque, el vidrio se vuelve sólido para no perder legibilidad. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root[data-theme='dark'] .q-modal,
+  :root[data-theme='dark'] .ql-cmd,
+  :root[data-theme='dark'] .ql-notifications,
+  :root[data-theme='dark'] .ql-user-menu,
+  :root[data-theme='dark'] .qx-menu-list,
+  :root[data-theme='dark'] .qp-menu-list,
+  :root[data-theme='dark'] .q-toast {
+    background: var(--q-surface-2);
+  }
+
+  :root[data-theme='dark'] .ql-topbar {
+    background: var(--q-bg);
+  }
+}
+
+/* Quien pide menos transparencia en su sistema la recibe. */
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-theme='dark'] .q-modal,
+  :root[data-theme='dark'] .ql-cmd,
+  :root[data-theme='dark'] .ql-notifications,
+  :root[data-theme='dark'] .ql-user-menu,
+  :root[data-theme='dark'] .qx-menu-list,
+  :root[data-theme='dark'] .qp-menu-list,
+  :root[data-theme='dark'] .q-toast {
+    background: var(--q-surface-2);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Autocompletado de Chrome en modo oscuro: sin el fondo blanco azulado. */
+:root[data-theme='dark'] .q-input:-webkit-autofill,
+:root[data-theme='dark'] .q-input:-webkit-autofill:hover,
+:root[data-theme='dark'] .q-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--q-ink);
+  caret-color: var(--q-ink);
+  -webkit-box-shadow: 0 0 0 1000px var(--q-surface) inset;
+  box-shadow: 0 0 0 1000px var(--q-surface) inset;
+  transition: background-color 9999s ease-out 0s;
+}

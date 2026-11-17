@@ -9,11 +9,6 @@ export type ProjectMember = {
   avatarUrl: string | null;
 };
 
-export type AddProjectMemberPayload = {
-  email: string;
-  role?: 'ADMIN' | 'MEMBER';
-};
-
 function authHeader(accessToken: string) {
   return {
     headers: {
@@ -24,15 +19,6 @@ function authHeader(accessToken: string) {
 
 export async function listProjectMembers(accessToken: string, projectId: string): Promise<ProjectMember[]> {
   const { data } = await api.get<ProjectMember[]>(`/projects/${projectId}/members`, authHeader(accessToken));
-  return data;
-}
-
-export async function addProjectMember(
-  accessToken: string,
-  projectId: string,
-  payload: AddProjectMemberPayload,
-): Promise<ProjectMember[]> {
-  const { data } = await api.post<ProjectMember[]>(`/projects/${projectId}/members`, payload, authHeader(accessToken));
   return data;
 }
 

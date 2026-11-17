@@ -82,7 +82,7 @@ export class InvitationsService {
     `;
 
     if (duplicatedPendingRows.length > 0) {
-      throw new BadRequestException('Esta persona ya tiene una invitacion pendiente para este proyecto.');
+      throw new BadRequestException('Esta persona ya tiene una invitación pendiente para este proyecto.');
     }
 
     const alreadyMemberRows = await this.prisma.$queryRaw<Array<{ id: string }>>`
@@ -162,8 +162,8 @@ export class InvitationsService {
     if (info) {
       await this.notificationsService.createForUsers([invitedUserId], {
         type: 'INVITATION_PENDING',
-        title: `Invitacion a ${info.projectName}`,
-        message: `${info.inviterName?.trim() || info.inviterEmail} te invito como ${dto.role ?? 'MEMBER'}.`,
+        title: `Invitación a ${info.projectName}`,
+        message: `${info.inviterName?.trim() || info.inviterEmail} te invitó como ${dto.role ?? 'MEMBER'}.`,
         projectId,
         entityType: 'INVITATION',
         entityId: rows[0].id,
@@ -184,7 +184,7 @@ export class InvitationsService {
     const invitation = await this.getOwnedInvitation(userId, email, invitationId);
 
     if (invitation.status !== 'PENDING') {
-      throw new BadRequestException('La invitacion ya fue procesada.');
+      throw new BadRequestException('La invitación ya fue procesada.');
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -231,8 +231,8 @@ export class InvitationsService {
     if (project?.ownerId) {
       await this.notificationsService.createForUsers([project.ownerId], {
         type: 'INVITATION_ACCEPTED',
-        title: 'Invitacion aceptada',
-        message: `${actor?.name?.trim() || actor?.email || 'Un usuario'} acepto tu invitacion a ${project.projectName}.`,
+        title: 'Invitación aceptada',
+        message: `${actor?.name?.trim() || actor?.email || 'Un usuario'} aceptó tu invitación a ${project.projectName}.`,
         projectId: invitation.projectId,
         entityType: 'INVITATION',
         entityId: invitationId,
@@ -246,7 +246,7 @@ export class InvitationsService {
     const invitation = await this.getOwnedInvitation(userId, email, invitationId);
 
     if (invitation.status !== 'PENDING') {
-      throw new BadRequestException('La invitacion ya fue procesada.');
+      throw new BadRequestException('La invitación ya fue procesada.');
     }
 
     await this.prisma.$executeRaw`
@@ -284,8 +284,8 @@ export class InvitationsService {
     if (project?.ownerId) {
       await this.notificationsService.createForUsers([project.ownerId], {
         type: 'INVITATION_REJECTED',
-        title: 'Invitacion rechazada',
-        message: `${actor?.name?.trim() || actor?.email || 'Un usuario'} rechazo tu invitacion a ${project.projectName}.`,
+        title: 'Invitación rechazada',
+        message: `${actor?.name?.trim() || actor?.email || 'Un usuario'} rechazó tu invitación a ${project.projectName}.`,
         projectId: invitation.projectId,
         entityType: 'INVITATION',
         entityId: invitationId,
@@ -340,7 +340,7 @@ export class InvitationsService {
 
     const invitation = rows[0];
     if (!invitation) {
-      throw new NotFoundException('Invitacion no encontrada.');
+      throw new NotFoundException('Invitación no encontrada.');
     }
 
     if (invitation.status !== 'PENDING') {
@@ -377,7 +377,7 @@ export class InvitationsService {
 
     const invitation = rows[0];
     if (!invitation) {
-      throw new ForbiddenException('No tienes acceso a esta invitacion.');
+      throw new ForbiddenException('No tienes acceso a esta invitación.');
     }
 
     return invitation;
@@ -477,8 +477,8 @@ export class InvitationsService {
             ${randomUUID()},
             ${userId},
             'INVITATION_PENDING',
-            ${`Invitacion a ${invitation.projectName}`},
-            ${`${invitation.inviterName?.trim() || invitation.inviterEmail} te invito como ${invitation.role}.`},
+            ${`Invitación a ${invitation.projectName}`},
+            ${`${invitation.inviterName?.trim() || invitation.inviterEmail} te invitó como ${invitation.role}.`},
             ${invitation.projectId},
             'INVITATION',
             ${invitation.id},

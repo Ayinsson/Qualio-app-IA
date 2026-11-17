@@ -225,11 +225,15 @@ export class ReportsService {
 
     const createdMap = new Map(trendCreatedRows.map((row) => [this.toBucketLabel(row.bucket), row.created]));
     const closedMap = new Map(trendClosedRows.map((row) => [this.toBucketLabel(row.bucket), row.closed]));
-    const trend: OverviewTrendPointDto[] = this.buildWeeklyBuckets(normalizedWeeks).map((bucket) => ({
-      bucket,
-      created: createdMap.get(bucket) ?? 0,
-      closed: closedMap.get(bucket) ?? 0,
-    }));
+    const trend: OverviewTrendPointDto[] = this.buildWeeklyBucketDates(normalizedWeeks).map((date) => {
+      const bucket = this.toBucketLabel(date);
+      return {
+        bucket,
+        weekStart: date.toISOString().slice(0, 10),
+        created: createdMap.get(bucket) ?? 0,
+        closed: closedMap.get(bucket) ?? 0,
+      };
+    });
 
     return {
       kpis,
@@ -446,6 +450,7 @@ export class ReportsService {
       })),
       delivery: deliveryRows.map((row) => ({
         bucket: this.toBucketLabel(row.bucket),
+        weekStart: new Date(row.bucket).toISOString().slice(0, 10),
         completedTasks: row.completedTasks,
         completedBugs: row.completedBugs,
         rollover: row.rollover,
@@ -601,6 +606,7 @@ export class ReportsService {
       const week = index + 1;
       return {
         week: `W${week}`,
+        weekStart: this.monthSliceStart(month, week),
         created: createdMap.get(week) ?? 0,
         closed: closedMap.get(week) ?? 0,
       };
@@ -612,6 +618,7 @@ export class ReportsService {
       const row = typeMap.get(week);
       return {
         week: `W${week}`,
+        weekStart: this.monthSliceStart(month, week),
         tasksClosed: row?.tasksClosed ?? 0,
         bugsClosed: row?.bugsClosed ?? 0,
       };
@@ -717,23 +724,25 @@ export class ReportsService {
     return lines.join('\n');
   }
 
-  private buildWeeklyBuckets(weeks: number): string[] {
-    const buckets: string[] = [];
+  /** Primer día del tramo `week` (1 = días 1-7) dentro del mes 'AAAA-MM'. */
+  private monthSliceStart(month: string, week: number): string {
+    return `${month}-${String((week - 1) * 7 + 1).padStart(2, '0')}`;
+  }
+
+  /** Lunes (UTC) de cada una de las últimas `weeks` semanas, de la más antigua a la actual. */
+  private buildWeeklyBucketDates(weeks: number): Date[] {
     const now = new Date();
     const start = new Date(now);
-    const day = start.getUTCDay();
-    const diffToMonday = (day + 6) % 7;
+    const diffToMonday = (start.getUTCDay() + 6) % 7;
     start.setUTCDate(start.getUTCDate() - diffToMonday);
     start.setUTCHours(0, 0, 0, 0);
     start.setUTCDate(start.getUTCDate() - (weeks - 1) * 7);
 
-    for (let i = 0; i < weeks; i += 1) {
+    return Array.from({ length: weeks }, (_, index) => {
       const current = new Date(start);
-      current.setUTCDate(start.getUTCDate() + i * 7);
-      buckets.push(this.toBucketLabel(current));
-    }
-
-    return buckets;
+      current.setUTCDate(start.getUTCDate() + index * 7);
+      return current;
+    });
   }
 
   private toBucketLabel(date: Date): string {
@@ -746,7 +755,7 @@ export class ReportsService {
 
   private parseMonthRange(month: string): { start: Date; end: Date } {
     if (!/^\d{4}-\d{2}$/.test(month)) {
-      throw new BadRequestException('Formato de mes invalido. Usa YYYY-MM.');
+      throw new BadRequestException('Formato de mes inválido. Usa YYYY-MM.');
     }
 
     const [yearPart, monthPart] = month.split('-');
@@ -754,7 +763,7 @@ export class ReportsService {
     const monthIndex = Number(monthPart) - 1;
 
     if (!Number.isFinite(year) || !Number.isFinite(monthIndex) || monthIndex < 0 || monthIndex > 11) {
-      throw new BadRequestException('Mes invalido.');
+      throw new BadRequestException('Mes inválido.');
     }
 
     const start = new Date(Date.UTC(year, monthIndex, 1, 0, 0, 0, 0));

@@ -167,3 +167,13 @@ export async function updateAvatar(
 
   return data;
 }
+
+export async function removeAvatar(accessToken: string): Promise<UpdateProfileResponse> {
+  const { data } = await api.delete<UpdateProfileResponse>('/auth/avatar', {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  return data;
+}

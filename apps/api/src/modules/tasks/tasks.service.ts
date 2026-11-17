@@ -289,7 +289,7 @@ export class TasksService {
     await this.notificationsService.notifyProjectAudience(current.projectId, ownerId, {
       type: 'TASK_UPDATED',
       title: `Tarea movida ${moved.itemKey ?? moved.id}`,
-      message: `Se movio a ${dto.section}.`,
+      message: `Se movió a ${dto.section}.`,
       projectId: current.projectId,
       entityType: 'TASK',
       entityId: id,

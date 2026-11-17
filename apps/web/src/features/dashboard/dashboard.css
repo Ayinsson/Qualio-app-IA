@@ -1,0 +1,349 @@
+/* Panel de inicio (Fase 2) */
+
+.qd {
+  container-type: inline-size;
+  display: grid;
+  gap: var(--q-space-5);
+  width: 100%;
+  max-width: 1600px;
+  margin-inline: auto;
+  color: var(--q-ink);
+  font-family: var(--q-font);
+}
+
+.qd-title {
+  margin: 0;
+  font-size: var(--q-text-2xl);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.qd-summary {
+  max-width: 64ch;
+  margin: var(--q-space-2) 0 0;
+  color: var(--q-ink-soft);
+  font-size: var(--q-text-base);
+  line-height: 1.55;
+}
+
+.qd-summary strong {
+  color: var(--q-ink);
+  font-weight: 500;
+}
+
+.qd-warning {
+  margin: var(--q-space-2) 0 0;
+  color: var(--q-blocked);
+  font-size: var(--q-text-sm);
+}
+
+.qd-note {
+  margin: 0;
+  color: var(--q-ink-soft);
+}
+
+.qd-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
+  align-items: start;
+  gap: var(--q-space-4);
+}
+
+.qd-column {
+  display: grid;
+  gap: var(--q-space-4);
+}
+
+.qd-panel {
+  overflow: hidden;
+}
+
+.qd-panel-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--q-space-2);
+  padding: 14px var(--q-space-4) 10px;
+}
+
+.qd-panel-head h2 {
+  margin: 0;
+  font-size: var(--q-text-base);
+  font-weight: 700;
+}
+
+.qd-count {
+  color: var(--q-ink-muted);
+  font-size: var(--q-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.qd-link {
+  margin-left: auto;
+  color: var(--q-link);
+  font-size: var(--q-text-sm);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.qd-link:hover {
+  text-decoration: underline;
+}
+
+.qd-panel-empty,
+.qd-more {
+  margin: 0;
+  padding: var(--q-space-3) var(--q-space-4) var(--q-space-4);
+  color: var(--q-ink-soft);
+  font-size: var(--q-text-sm);
+}
+
+.qd-more {
+  border-top: 1px solid var(--q-line);
+}
+
+.qd-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qd-list > li {
+  border-top: 1px solid var(--q-line);
+}
+
+.qd-row {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--q-space-3);
+  padding: 10px var(--q-space-4);
+  color: inherit;
+  text-decoration: none;
+}
+
+.qd-row--bug {
+  grid-template-columns: max-content minmax(0, 1fr) auto;
+}
+
+.qd-row:hover {
+  background: var(--q-surface-2);
+}
+
+.qd-row:focus-visible,
+.qd-project:focus-visible {
+  outline: 2px solid var(--q-focus);
+  outline-offset: -2px;
+}
+
+.qd-row-text {
+  display: grid;
+  min-width: 0;
+}
+
+.qd-row-title {
+  overflow: hidden;
+  font-size: var(--q-text-md);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qd-row-meta {
+  overflow: hidden;
+  color: var(--q-ink-muted);
+  font-size: var(--q-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qd-due {
+  color: var(--q-ink-soft);
+  font-size: var(--q-text-xs);
+  white-space: nowrap;
+}
+
+.qd-due.is-late {
+  color: var(--q-bad);
+  font-weight: 500;
+}
+
+.qd-due.is-soon {
+  color: var(--q-blocked);
+  font-weight: 500;
+}
+
+.qd-project {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: var(--q-space-3) var(--q-space-4);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.qd-project:hover {
+  background: var(--q-surface-2);
+}
+
+.qd-project-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-size: var(--q-text-md);
+  font-weight: 500;
+}
+
+.qd-project-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--q-radius-sm);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  object-fit: cover;
+}
+
+.qd-project-meta {
+  padding-left: 32px;
+  color: var(--q-ink-soft);
+  font-size: var(--q-text-xs);
+}
+
+.qd-progress {
+  display: block;
+  height: 6px;
+  margin-left: 32px;
+  overflow: hidden;
+  border-radius: var(--q-radius-pill);
+  background: var(--q-surface-2);
+}
+
+.qd-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--q-ok);
+}
+
+/* Estado vacío: primer proyecto */
+.qd-start.q-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--q-space-6);
+  padding: var(--q-space-6);
+}
+
+.qd-start-title {
+  margin: 0 0 var(--q-space-2);
+  font-size: var(--q-text-xl);
+  font-weight: 700;
+}
+
+.qd-start-text {
+  max-width: 44ch;
+  margin: 0 0 var(--q-space-5);
+  color: var(--q-ink-soft);
+  line-height: 1.55;
+}
+
+.qd-steps {
+  display: grid;
+  gap: var(--q-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: qd-step;
+}
+
+.qd-steps li {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding-left: 42px;
+  color: var(--q-ink-soft);
+  font-size: var(--q-text-md);
+  line-height: 1.45;
+  counter-increment: qd-step;
+}
+
+.qd-steps li::before {
+  content: counter(qd-step);
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--q-line);
+  border-radius: 50%;
+  color: var(--q-ink);
+  font-size: var(--q-text-sm);
+  font-weight: 700;
+}
+
+.qd-steps strong {
+  color: var(--q-ink);
+  font-weight: 500;
+}
+
+/* Con espacio de sobra, tres columnas: asignado, bugs y proyectos, todo sin hacer scroll. */
+@container (min-width: 1240px) {
+  .qd-grid {
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1.1fr) minmax(300px, 0.9fr);
+  }
+
+  .qd-column {
+    display: contents;
+  }
+
+  /* "Todo al día" ocupa el lugar de las dos primeras columnas. */
+  .qd-clear {
+    grid-column: span 2;
+  }
+
+  /* Columnas más angostas: el título usa hasta dos líneas en vez de cortarse. */
+  .qd-row-title {
+    display: -webkit-box;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+}
+
+@media (max-width: 960px) {
+  .qd-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .qd-start.q-card {
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--q-space-5);
+  }
+
+  .qd-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .qd-row .q-key,
+  .qd-row .q-priority {
+    display: none;
+  }
+
+  .qd-row--bug {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}

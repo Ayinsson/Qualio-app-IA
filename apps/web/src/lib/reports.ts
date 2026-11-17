@@ -11,6 +11,8 @@ export type OverviewReport = {
   };
   trend: Array<{
     bucket: string;
+    /** Primer día de la semana (AAAA-MM-DD). Puede faltar si la API es anterior. */
+    weekStart?: string;
     created: number;
     closed: number;
   }>;
@@ -47,6 +49,7 @@ export type SprintReport = {
   }>;
   delivery: Array<{
     bucket: string;
+    weekStart?: string;
     completedTasks: number;
     completedBugs: number;
     rollover: number;
@@ -63,11 +66,13 @@ export type MonthlyReport = {
   };
   weeklyTrend: Array<{
     week: string;
+    weekStart?: string;
     created: number;
     closed: number;
   }>;
   weeklyTypeClosure: Array<{
     week: string;
+    weekStart?: string;
     tasksClosed: number;
     bugsClosed: number;
   }>;

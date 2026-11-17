@@ -30,7 +30,7 @@ export class AuthService {
     const existingUser = await this.findUserByEmail(normalizedEmail);
 
     if (existingUser) {
-      throw new BadRequestException('El correo ya esta registrado.');
+      throw new BadRequestException('El correo ya está registrado.');
     }
 
     const userId = randomUUID();
@@ -73,11 +73,11 @@ export class AuthService {
     const user = await this.findUserByEmail(dto.email);
 
     if (!user) {
-      throw new UnauthorizedException('Credenciales invalidas.');
+      throw new UnauthorizedException('Credenciales inválidas.');
     }
 
     if (!this.isTruthy(user.isActive)) {
-      throw new UnauthorizedException('La cuenta esta inactiva.');
+      throw new UnauthorizedException('La cuenta está inactiva.');
     }
 
     const passwordValid = await argon2.verify(user.passwordHash, dto.password);
@@ -89,7 +89,7 @@ export class AuthService {
         WHERE id = ${user.id}
       `;
 
-      throw new UnauthorizedException('Credenciales invalidas.');
+      throw new UnauthorizedException('Credenciales inválidas.');
     }
 
     await this.prisma.$executeRaw`
@@ -106,13 +106,13 @@ export class AuthService {
     const refreshRecord = await this.findRefreshToken(refreshTokenHash);
 
     if (!refreshRecord) {
-      throw new UnauthorizedException('Refresh token invalido o expirado.');
+      throw new UnauthorizedException('Refresh token inválido o expirado.');
     }
 
     const user = await this.findUserById(refreshRecord.userId);
 
     if (!user || !this.isTruthy(user.isActive)) {
-      throw new UnauthorizedException('Sesion invalida.');
+      throw new UnauthorizedException('Sesión inválida.');
     }
 
     await this.revokeRefreshTokenById(refreshRecord.id);
@@ -141,7 +141,7 @@ export class AuthService {
     const user = await this.findUserById(payload.sub);
 
     if (!user || !this.isTruthy(user.isActive)) {
-      throw new UnauthorizedException('Sesion invalida.');
+      throw new UnauthorizedException('Sesión inválida.');
     }
 
     return { sub: user.id, email: user.email };
@@ -151,14 +151,14 @@ export class AuthService {
     const user = await this.findUserById(userId);
 
     if (!user) {
-      throw new UnauthorizedException('Sesion invalida.');
+      throw new UnauthorizedException('Sesión inválida.');
     }
 
     const normalizedEmail = dto.email.trim().toLowerCase();
     const candidate = await this.findUserByEmail(normalizedEmail);
 
     if (candidate && candidate.id !== userId) {
-      throw new BadRequestException('El correo ya esta registrado por otro usuario.');
+      throw new BadRequestException('El correo ya está registrado por otro usuario.');
     }
 
     await this.prisma.$executeRaw`
@@ -184,17 +184,17 @@ export class AuthService {
     const user = await this.findUserById(userId);
 
     if (!user) {
-      throw new UnauthorizedException('Sesion invalida.');
+      throw new UnauthorizedException('Sesión inválida.');
     }
 
     const currentMatches = await argon2.verify(user.passwordHash, dto.currentPassword);
 
     if (!currentMatches) {
-      throw new BadRequestException('La contrasena actual no es valida.');
+      throw new BadRequestException('La contraseña actual no es válida.');
     }
 
     if (dto.currentPassword === dto.newPassword) {
-      throw new BadRequestException('La nueva contrasena debe ser diferente a la actual.');
+      throw new BadRequestException('La nueva contraseña debe ser diferente a la actual.');
     }
 
     const newHash = await argon2.hash(dto.newPassword);
@@ -209,11 +209,12 @@ export class AuthService {
     return { success: true };
   }
 
-  async updateAvatar(userId: string, avatarUrl: string): Promise<{ user: PublicUser }> {
+  /** Guarda la foto de perfil; con `null` la quita. */
+  async updateAvatar(userId: string, avatarUrl: string | null): Promise<{ user: PublicUser }> {
     const user = await this.findUserById(userId);
 
     if (!user) {
-      throw new UnauthorizedException('Sesion invalida.');
+      throw new UnauthorizedException('Sesión inválida.');
     }
 
     await this.prisma.$executeRaw`

@@ -71,7 +71,7 @@ export class InvitationsController {
     const payload = req.user;
 
     if (!payload?.sub || !payload.email) {
-      throw new UnauthorizedException('Sesion invalida.');
+      throw new UnauthorizedException('Sesión inválida.');
     }
 
     return payload;

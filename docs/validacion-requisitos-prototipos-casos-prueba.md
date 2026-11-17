@@ -2,12 +2,12 @@
 
 | Campo | Detalle |
 |---|---|
-| Institucion | Inserte nombre de la institucion |
-| Programa | Inserte nombre del programa |
+| Institucion | Servicio Nacional de Aprendizaje - SENA |
+| Programa | Analisis y Desarrollo de Software |
 | Asignatura | Inserte nombre de la asignatura |
 | Titulo del documento | Documento tecnico de validacion de requisitos, prototipos y casos de prueba |
 | Proyecto | Qualio - Gestion de proyectos, backlog, sprint y reportes |
-| Elaborado por | Inserte nombre del estudiante o equipo |
+| Elaborado por | Ayinsson Solano Mandon |
 | Instructor | Inserte nombre del instructor |
 | Ciudad y fecha | Inserte ciudad - 26-03-2026 |
 
@@ -20,10 +20,10 @@
 3. Alcance  
 4. Tecnicas de validacion aplicadas  
 5. Lista de requerimientos (historias de usuario)  
-6. HU-01 - Crear proyecto  
-7. HU-05 - Iniciar sprint  
-8. HU-07 - Gestionar invitaciones de participantes  
-9. HU-09 - Consultar reportes del proyecto  
+6. HU-QUALIO-001 - Crear proyecto  
+7. HU-QUALIO-004 - Iniciar sprint  
+8. HU-QUALIO-005 - Gestionar invitaciones de participantes  
+9. HU-QUALIO-008 - Consultar reportes del proyecto  
 10. Criterios de aprobacion del documento  
 11. Aprobacion  
 12. Anexos  
@@ -37,6 +37,7 @@
 | Version | Fecha | Autor | Descripcion del cambio |
 |---|---|---|---|
 | 1.0 | 26-03-2026 | Equipo Qualio | Creacion inicial del documento con 4 HU, prototipos y casos de prueba |
+| 1.1 | 08-11-2026 | Equipo Qualio | Se unifican los IDs de HU con el documento AA1-EV03 (HU-QUALIO-XXX) y se completan datos de portada (hallazgos H-05 y H-06 del informe AA3-EV02) |
 
 ## 2. Introduccion
 
@@ -44,10 +45,10 @@ Este documento presenta la validacion funcional de requisitos para el sistema Qu
 
 La validacion se enfoca en cuatro historias de usuario priorizadas del proyecto:
 
-- HU-01: Crear proyecto.
-- HU-05: Iniciar sprint desde backlog.
-- HU-07: Gestionar invitaciones de participantes.
-- HU-09: Consultar reportes del proyecto.
+- HU-QUALIO-001: Crear proyecto.
+- HU-QUALIO-004: Iniciar sprint desde backlog.
+- HU-QUALIO-005: Gestionar invitaciones de participantes.
+- HU-QUALIO-008: Consultar reportes del proyecto.
 
 ## 3. Alcance
 
@@ -75,14 +76,14 @@ Este documento no cubre:
 
 | ID | Historia de usuario | Prioridad | Interfaz principal |
 |---|---|---|---|
-| HU-01 | Como owner, quiero crear un proyecto con nombre, tipo y descripcion para organizar el trabajo del equipo. | Alta | Modal/Formulario de creacion de proyecto |
-| HU-05 | Como owner, quiero iniciar un sprint para mover automaticamente los tickets de Proximo Sprint al tablero. | Alta | Vista Backlog (boton Iniciar Sprint) |
-| HU-07 | Como owner, quiero invitar usuarios existentes y cancelar invitaciones pendientes para controlar acceso al proyecto. | Alta | Modal de Participantes + seccion Invitaciones pendientes |
-| HU-09 | Como owner, quiero consultar reportes (General, Sprint, Mensual QA) para evaluar KPIs del proyecto. | Alta | Vista Reportes del proyecto |
+| HU-QUALIO-001 | Como owner, quiero crear un proyecto con nombre, tipo y descripcion para organizar el trabajo del equipo. | Alta | Modal/Formulario de creacion de proyecto |
+| HU-QUALIO-004 | Como owner, quiero iniciar un sprint para mover automaticamente los tickets de Proximo Sprint al tablero. | Alta | Vista Backlog (boton Iniciar Sprint) |
+| HU-QUALIO-005 | Como owner, quiero invitar usuarios existentes y cancelar invitaciones pendientes para controlar acceso al proyecto. | Alta | Modal de Participantes + seccion Invitaciones pendientes |
+| HU-QUALIO-008 | Como owner, quiero consultar reportes (General, Sprint, Mensual QA) para evaluar KPIs del proyecto. | Alta | Vista Reportes del proyecto |
 
 ---
 
-## 6. HU-01 - Crear proyecto
+## 6. HU-QUALIO-001 - Crear proyecto
 
 ### 6.1 Prototipo de interfaz
 
@@ -92,10 +93,10 @@ Este documento no cubre:
 
 | Campo | Valor |
 |---|---|
-| Identificador | CP-HU01-01 |
+| Identificador | CP-HU001-01 |
 | Nombre | Creacion de proyecto con datos validos |
 | Objetivo | Validar que un owner pueda crear un proyecto y visualizarlo en la lista de proyectos activos |
-| HU asociada | HU-01 - Crear proyecto |
+| HU asociada | HU-QUALIO-001 - Crear proyecto |
 | Precondiciones | 1) Usuario autenticado como owner. 2) Acceso a la vista principal de proyectos. |
 
 | Paso | Accion | Resultado esperado |
@@ -107,7 +108,7 @@ Este documento no cubre:
 
 ---
 
-## 7. HU-05 - Iniciar sprint
+## 7. HU-QUALIO-004 - Iniciar sprint
 
 ### 7.1 Prototipo de interfaz
 
@@ -117,10 +118,10 @@ Este documento no cubre:
 
 | Campo | Valor |
 |---|---|
-| Identificador | CP-HU05-01 |
+| Identificador | CP-HU004-01 |
 | Nombre | Inicio de sprint con tickets en Proximo Sprint |
 | Objetivo | Validar que al iniciar sprint se cree Sprint N y se muevan tickets desde Proximo Sprint al Tablero |
-| HU asociada | HU-05 - Iniciar sprint |
+| HU asociada | HU-QUALIO-004 - Iniciar sprint |
 | Precondiciones | 1) Usuario owner autenticado. 2) Proyecto existente. 3) Minimo 1 ticket en seccion Proximo Sprint. |
 
 | Paso | Accion | Resultado esperado |
@@ -133,7 +134,7 @@ Este documento no cubre:
 
 ---
 
-## 8. HU-07 - Gestionar invitaciones de participantes
+## 8. HU-QUALIO-005 - Gestionar invitaciones de participantes
 
 ### 8.1 Prototipo de interfaz
 
@@ -143,10 +144,10 @@ Este documento no cubre:
 
 | Campo | Valor |
 |---|---|
-| Identificador | CP-HU07-01 |
+| Identificador | CP-HU005-01 |
 | Nombre | Invitacion y cancelacion de invitacion pendiente |
 | Objetivo | Validar que el owner pueda invitar usuario existente y cancelar invitacion pendiente desde Participantes |
-| HU asociada | HU-07 - Gestionar invitaciones de participantes |
+| HU asociada | HU-QUALIO-005 - Gestionar invitaciones de participantes |
 | Precondiciones | 1) Usuario owner autenticado. 2) Proyecto existente. 3) Correo de usuario existente en plataforma. |
 
 | Paso | Accion | Resultado esperado |
@@ -159,7 +160,7 @@ Este documento no cubre:
 
 ---
 
-## 9. HU-09 - Consultar reportes del proyecto
+## 9. HU-QUALIO-008 - Consultar reportes del proyecto
 
 ### 9.1 Prototipo de interfaz
 
@@ -169,10 +170,10 @@ Este documento no cubre:
 
 | Campo | Valor |
 |---|---|
-| Identificador | CP-HU09-01 |
+| Identificador | CP-HU008-01 |
 | Nombre | Consulta de KPI y graficas por vista de reportes |
 | Objetivo | Validar que el owner pueda consultar KPI y graficas en modos General, Sprint y Mensual QA |
-| HU asociada | HU-09 - Consultar reportes del proyecto |
+| HU asociada | HU-QUALIO-008 - Consultar reportes del proyecto |
 | Precondiciones | 1) Usuario owner autenticado. 2) Proyecto con datos de tareas, bugs y sprints. |
 
 | Paso | Accion | Resultado esperado |
@@ -206,7 +207,7 @@ Este documento no cubre:
 
 | Anexo | Descripcion | Evidencia |
 |---|---|---|
-| A1 | Mockup interfaz HU-01 | Inserte imagen aqui del mockup HU-01 |
-| A2 | Mockup interfaz HU-05 | Inserte imagen aqui del mockup HU-05 |
-| A3 | Mockup interfaz HU-07 | Inserte imagen aqui del mockup HU-07 |
-| A4 | Mockup interfaz HU-09 | Inserte imagen aqui del mockup HU-09 |
+| A1 | Mockup interfaz HU-QUALIO-001 | Inserte imagen aqui del mockup HU-QUALIO-001 |
+| A2 | Mockup interfaz HU-QUALIO-004 | Inserte imagen aqui del mockup HU-QUALIO-004 |
+| A3 | Mockup interfaz HU-QUALIO-005 | Inserte imagen aqui del mockup HU-QUALIO-005 |
+| A4 | Mockup interfaz HU-QUALIO-008 | Inserte imagen aqui del mockup HU-QUALIO-008 |

@@ -24,7 +24,7 @@ export class AttachmentsController {
     const normalized = entityType.toUpperCase();
 
     if (!ATTACHMENT_ENTITY_TYPES.includes(normalized as AttachmentEntityType)) {
-      throw new UnauthorizedException('Tipo de entidad no valido.');
+      throw new UnauthorizedException('Tipo de entidad no válido.');
     }
 
     return this.attachmentsService.findByEntity(this.getUserId(req), normalized as AttachmentEntityType, entityId);
@@ -34,7 +34,7 @@ export class AttachmentsController {
     const userId = req.user?.sub;
 
     if (!userId) {
-      throw new UnauthorizedException('Sesion invalida.');
+      throw new UnauthorizedException('Sesión inválida.');
     }
 
     return userId;

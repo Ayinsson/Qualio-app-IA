@@ -103,7 +103,7 @@ export class ProjectsService {
     `;
 
     if (users.length === 0) {
-      throw new UnauthorizedException('Sesion invalida. Inicia sesion nuevamente.');
+      throw new UnauthorizedException('Sesión inválida. Inicia sesión nuevamente.');
     }
   }
 

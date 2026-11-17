@@ -87,7 +87,7 @@ export class ReportsController {
     const userId = req.user?.sub;
 
     if (!userId) {
-      throw new UnauthorizedException('Sesion invalida.');
+      throw new UnauthorizedException('Sesión inválida.');
     }
 
     return userId;

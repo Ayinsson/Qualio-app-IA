@@ -189,6 +189,7 @@ Esto habilita botones de accion en frontend.
 - `file_size` en adjuntos se normaliza para evitar errores de serializacion `BigInt` en respuestas JSON.
 - El upload de archivo ocurre desde frontend a Supabase Storage y luego se registra metadata via API.
 - Para QA local, las politicas RLS del bucket deben permitir la operacion esperada del cliente anon/autenticado.
+- `TestCase` y `TestExecution` existen en `schema.prisma` como base de un modulo futuro de casos de prueba (ejecucion con resultado PASSED/FAILED/BLOCKED). Estan fuera del MVP: no tienen modulo API ni requerimiento aprobado, el resumen de proyecto devuelve `totalTestCases: 0` y la opcion "Crear Caso de Prueba" del menu de creacion no persiste datos. Antes de implementarlas se debe agregar el requerimiento, su caso de uso y su historia de usuario.
 
 ---
 

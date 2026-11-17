@@ -21,6 +21,8 @@ module.exports = [
         jest: 'readonly',
         beforeAll: 'readonly',
         afterAll: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
       },
     },
     plugins: {

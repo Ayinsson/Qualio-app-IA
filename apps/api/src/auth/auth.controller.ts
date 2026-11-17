@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   Ip,
@@ -65,7 +66,7 @@ export class AuthController {
     const { user } = req;
 
     if (!user) {
-      throw new UnauthorizedException('Sesion invalida.');
+      throw new UnauthorizedException('Sesión inválida.');
     }
 
     return { user: await this.authService.getSessionUser(user) };
@@ -80,7 +81,7 @@ export class AuthController {
     const { user } = req;
 
     if (!user) {
-      throw new UnauthorizedException('Sesion invalida.');
+      throw new UnauthorizedException('Sesión inválida.');
     }
 
     return this.authService.updateProfile(user.sub, dto);
@@ -95,7 +96,7 @@ export class AuthController {
     const { user } = req;
 
     if (!user) {
-      throw new UnauthorizedException('Sesion invalida.');
+      throw new UnauthorizedException('Sesión inválida.');
     }
 
     return this.authService.changePassword(user.sub, dto);
@@ -110,9 +111,21 @@ export class AuthController {
     const { user } = req;
 
     if (!user) {
-      throw new UnauthorizedException('Sesion invalida.');
+      throw new UnauthorizedException('Sesión inválida.');
     }
 
     return this.authService.updateAvatar(user.sub, dto.avatarUrl);
+  }
+
+  @Delete('avatar')
+  @UseGuards(JwtAuthGuard)
+  removeAvatar(@Req() req: Request & { user?: AuthPayload }): Promise<{ user: PublicUser }> {
+    const { user } = req;
+
+    if (!user) {
+      throw new UnauthorizedException('Sesión inválida.');
+    }
+
+    return this.authService.updateAvatar(user.sub, null);
   }
 }

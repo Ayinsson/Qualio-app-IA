@@ -1,0 +1,264 @@
+/* Colaboración (Fase 6): participantes, invitaciones y compartidos */
+
+/* Modal de participantes */
+.qc6 {
+  display: grid;
+  gap: var(--q-space-5);
+}
+
+.qc6-invite {
+  display: grid;
+  gap: 6px;
+}
+
+.qc6-invite-row {
+  display: flex;
+  gap: var(--q-space-2);
+}
+
+.qc6-invite-row .q-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.qc6-heading {
+  margin: 0 0 var(--q-space-2);
+  color: var(--q-ink-muted);
+  font-size: var(--q-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.qc6-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qc6-person {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--q-space-3);
+  padding: 10px 0;
+  border-top: 1px solid var(--q-line);
+}
+
+.qc6-list > .qc6-person:first-child {
+  border-top: 0;
+}
+
+.qc6-person-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.qc6-person-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  color: var(--q-ink);
+  font-size: var(--q-text-md);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qc6-person-meta {
+  overflow: hidden;
+  color: var(--q-ink-muted);
+  font-size: var(--q-text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qc6-you {
+  padding: 1px 7px;
+  border-radius: var(--q-radius-pill);
+  background: var(--q-run-bg);
+  color: var(--q-run);
+  font-size: var(--q-text-xs);
+  font-weight: 600;
+}
+
+.qc6-role {
+  color: var(--q-ink-soft);
+  font-size: var(--q-text-sm);
+}
+
+.qc6-envelope {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px dashed var(--q-line-strong);
+  border-radius: 50%;
+  color: var(--q-ink-muted);
+}
+
+.qc6-note {
+  margin: 0;
+  color: var(--q-ink-muted);
+  font-size: var(--q-text-sm);
+}
+
+.qc6-confirm {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--q-space-2);
+  padding: 6px 6px 6px 12px;
+  border-radius: var(--q-radius-md);
+  background: var(--q-blocked-bg);
+  color: var(--q-blocked);
+  font-size: var(--q-text-sm);
+  font-weight: 500;
+}
+
+.qc6-confirm span {
+  flex: 1;
+  min-width: 160px;
+}
+
+/* Páginas */
+.qc6-page {
+  display: grid;
+  gap: var(--q-space-4);
+  width: 100%;
+  max-width: 1080px;
+  margin-inline: auto;
+  color: var(--q-ink);
+  font-family: var(--q-font);
+}
+
+.qc6-page-title {
+  margin: 0;
+  font-size: var(--q-text-2xl);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.qc6-page-subtitle {
+  margin: var(--q-space-1) 0 0;
+  color: var(--q-ink-soft);
+}
+
+.qc6-tabs {
+  display: flex;
+  gap: 22px;
+  border-bottom: 1px solid var(--q-line);
+}
+
+.qc6-tab {
+  padding: 10px 0;
+  border: 0;
+  background: none;
+  color: var(--q-ink-soft);
+  font-family: inherit;
+  font-size: var(--q-text-md);
+  cursor: pointer;
+}
+
+.qc6-tab.is-active {
+  color: var(--q-ink);
+  font-weight: 500;
+  box-shadow: inset 0 -2px 0 var(--q-focus);
+}
+
+.qc6-tab:focus-visible {
+  outline: 2px solid var(--q-focus);
+  outline-offset: 2px;
+}
+
+.qc6-tab-count {
+  margin-left: 6px;
+  color: var(--q-ink-muted);
+  font-size: var(--q-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.qc6-cards {
+  display: grid;
+  gap: var(--q-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qc6-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--q-space-3);
+  padding: var(--q-space-4);
+  border: 1px solid var(--q-line);
+  border-radius: var(--q-radius-lg);
+  background: var(--q-surface);
+}
+
+.qc6-card.is-unread {
+  border-left: 3px solid var(--q-focus);
+}
+
+.qc6-card-text {
+  flex: 1;
+  min-width: 200px;
+  margin: 0;
+  color: var(--q-ink-soft);
+  line-height: 1.45;
+}
+
+.qc6-card-text strong {
+  color: var(--q-ink);
+  font-weight: 600;
+}
+
+.qc6-card-text time {
+  display: block;
+  color: var(--q-ink-muted);
+  font-size: var(--q-text-xs);
+}
+
+.qc6-card-actions {
+  display: flex;
+  gap: var(--q-space-2);
+}
+
+.qc6-outcome {
+  padding: 3px 10px;
+  border-radius: var(--q-radius-pill);
+  font-size: var(--q-text-xs);
+  font-weight: 600;
+}
+
+.qc6-outcome.is-accepted {
+  background: var(--q-ok-bg);
+  color: var(--q-ok);
+}
+
+.qc6-outcome.is-rejected {
+  background: var(--q-neutral-bg);
+  color: var(--q-neutral);
+}
+
+.qc6-more {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--q-space-3);
+}
+
+@media (max-width: 560px) {
+  .qc6-invite-row {
+    flex-direction: column;
+  }
+
+  .qc6-card-actions {
+    flex-basis: 100%;
+    justify-content: flex-end;
+  }
+}

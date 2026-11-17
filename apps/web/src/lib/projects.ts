@@ -15,15 +15,6 @@ export type Project = {
   updatedAt: string;
 };
 
-export type ProjectSummary = {
-  projectId: string;
-  totalTasks: number;
-  completedTasks: number;
-  totalTestCases: number;
-  totalBugs: number;
-  openBugs: number;
-};
-
 export type CreateProjectPayload = {
   name: string;
   logoUrl?: string;
@@ -75,10 +66,5 @@ export async function updateProject(
 
 export async function archiveProject(accessToken: string, id: string): Promise<Project> {
   const { data } = await api.patch<Project>(`/projects/${id}/archive`, {}, authHeader(accessToken));
-  return data;
-}
-
-export async function getProjectSummary(accessToken: string, id: string): Promise<ProjectSummary> {
-  const { data } = await api.get<ProjectSummary>(`/projects/${id}/summary`, authHeader(accessToken));
   return data;
 }

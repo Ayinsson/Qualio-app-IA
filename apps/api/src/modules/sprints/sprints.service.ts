@@ -75,7 +75,7 @@ export class SprintsService {
 
     const nextSprintCount = nextSprintCandidates[0]?.count ?? 0;
     if (nextSprintCount <= 0) {
-      throw new BadRequestException('No puedes iniciar un sprint sin tickets en Proximo Sprint.');
+      throw new BadRequestException('No puedes iniciar un sprint sin tickets en Próximo Sprint.');
     }
 
     return this.prisma.$transaction(async (tx) => {

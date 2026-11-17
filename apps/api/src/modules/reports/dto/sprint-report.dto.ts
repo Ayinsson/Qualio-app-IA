@@ -13,6 +13,8 @@ export type SprintBurndownPointDto = {
 
 export type SprintDeliveryPointDto = {
   bucket: string;
+  /** Primer día de la semana (AAAA-MM-DD). `bucket` se mantiene por compatibilidad. */
+  weekStart: string;
   completedTasks: number;
   completedBugs: number;
   rollover: number;

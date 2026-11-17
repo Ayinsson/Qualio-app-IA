@@ -9,6 +9,8 @@ export type OverviewKpiDto = {
 
 export type OverviewTrendPointDto = {
   bucket: string;
+  /** Primer día de la semana (AAAA-MM-DD). `bucket` se mantiene por compatibilidad. */
+  weekStart: string;
   created: number;
   closed: number;
 };

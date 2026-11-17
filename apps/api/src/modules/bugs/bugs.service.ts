@@ -290,7 +290,7 @@ export class BugsService {
     await this.notificationsService.notifyProjectAudience(current.projectId, ownerId, {
       type: 'BUG_UPDATED',
       title: `Bug movido ${moved.itemKey ?? moved.id}`,
-      message: `Se movio a ${dto.section}.`,
+      message: `Se movió a ${dto.section}.`,
       projectId: current.projectId,
       entityType: 'BUG',
       entityId: id,
