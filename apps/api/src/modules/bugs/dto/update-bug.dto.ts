@@ -1,5 +1,6 @@
 import { IsDateString, IsIn, IsOptional, IsString, MaxLength, MinLength, ValidateIf } from 'class-validator';
 
+import { WORK_ITEM_TYPES, type WorkItemType } from '../../planning/work-item-types';
 import { BACKLOG_SECTIONS, type BacklogSection } from '../../tasks/dto/create-task.dto';
 import { BUG_PRIORITIES, type BugPriority } from './create-bug.dto';
 
@@ -50,6 +51,30 @@ export class UpdateBugDto {
   @ValidateIf((_, value) => value !== null)
   @IsDateString()
   dueDate?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsDateString()
+  startDate?: string | null;
+
+  /** null = sacarlo del Planning ("sin planificar"). */
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(36)
+  stageGroupId?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsIn(WORK_ITEM_TYPES)
+  parentType?: WorkItemType | null;
+
+  /** null = deja de ser subtarea. */
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(36)
+  parentId?: string | null;
 
   @IsOptional()
   @IsString()

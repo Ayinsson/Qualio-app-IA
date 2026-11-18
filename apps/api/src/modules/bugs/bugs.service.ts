@@ -4,6 +4,13 @@ import { randomUUID } from 'crypto';
 import { currentApiTokenId } from '../../common/request-context';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import {
+  assertNoOpenSubtasks,
+  isFinishedStatus,
+  resolvePlanningOnCreate,
+  resolvePlanningOnUpdate,
+  type WorkItemType,
+} from '../planning/subtask-rules';
 import { type BacklogSection } from '../tasks/dto/create-task.dto';
 import { CreateBugDto } from './dto/create-bug.dto';
 import { MoveBugDto } from './dto/move-bug.dto';
@@ -23,6 +30,12 @@ export type BugEntity = {
   expectedResult: string | null;
   actualResult: string | null;
   dueDate: Date | null;
+  startDate: Date | null;
+  /** Macroactividad del Planning; null en subtareas (heredan la del padre) o sin planificar. */
+  stageGroupId: string | null;
+  /** Si es subtarea: el ticket del que depende. */
+  parentType: WorkItemType | null;
+  parentId: string | null;
   sprintId: string | null;
   sprintName: string | null;
   sprintSequence: number | null;
@@ -68,6 +81,11 @@ export class BugsService {
     const section = dto.section ?? 'GENERAL_BACKLOG';
     const sprintId = section === 'SPRINT_BOARD' ? await this.resolveActiveSprintId(projectId) : null;
     const nextPosition = await this.getNextPosition(projectId, section);
+    const planning = await resolvePlanningOnCreate(this.prisma, projectId, {
+      stageGroupId: dto.stageGroupId,
+      parentType: dto.parentType,
+      parentId: dto.parentId,
+    });
     const projectCode = await this.getProjectCodePrefix(projectId);
     const nextSequence = await this.reserveNextSequence(projectId);
     const itemKey = `${projectCode}-${String(nextSequence).padStart(3, '0')}`;
@@ -87,6 +105,11 @@ export class BugsService {
         expected_result,
         actual_result,
         due_date,
+        start_date,
+        stage_group_id,
+        planned_at,
+        parent_entity_type,
+        parent_entity_id,
         sprint_id,
         completed_in_sprint_id,
         rollover_from_sprint_id,
@@ -108,6 +131,11 @@ export class BugsService {
         ${dto.expectedResult?.trim() ?? null},
         ${dto.actualResult?.trim() ?? null},
         ${dto.dueDate ? new Date(dto.dueDate) : null},
+        ${dto.startDate ? new Date(dto.startDate) : null},
+        ${planning.stageGroupId},
+        ${planning.stageGroupId ? new Date() : null},
+        ${planning.parentType},
+        ${planning.parentId},
         ${sprintId},
         NULL,
         NULL,
@@ -129,6 +157,10 @@ export class BugsService {
         expected_result AS "expectedResult",
         actual_result AS "actualResult",
         due_date AS "dueDate",
+        start_date AS "startDate",
+        stage_group_id AS "stageGroupId",
+        parent_entity_type AS "parentType",
+        parent_entity_id AS "parentId",
         sprint_id AS "sprintId",
         NULL::VARCHAR AS "sprintName",
         NULL::INT AS "sprintSequence",
@@ -176,6 +208,10 @@ export class BugsService {
           b.expected_result AS "expectedResult",
           b.actual_result AS "actualResult",
         b.due_date AS "dueDate",
+        b.start_date AS "startDate",
+        b.stage_group_id AS "stageGroupId",
+        b.parent_entity_type AS "parentType",
+        b.parent_entity_id AS "parentId",
           b.sprint_id AS "sprintId",
           s.name AS "sprintName",
           s.sequence AS "sprintSequence",
@@ -213,6 +249,10 @@ export class BugsService {
         b.expected_result AS "expectedResult",
         b.actual_result AS "actualResult",
         b.due_date AS "dueDate",
+        b.start_date AS "startDate",
+        b.stage_group_id AS "stageGroupId",
+        b.parent_entity_type AS "parentType",
+        b.parent_entity_id AS "parentId",
         b.sprint_id AS "sprintId",
         s.name AS "sprintName",
         s.sequence AS "sprintSequence",
@@ -323,6 +363,19 @@ export class BugsService {
     const nextExpected = dto.expectedResult === undefined ? current.expectedResult : dto.expectedResult.trim() || null;
     const nextActual = dto.actualResult === undefined ? current.actualResult : dto.actualResult.trim() || null;
     const nextDueDate = dto.dueDate === undefined ? current.dueDate : dto.dueDate === null ? null : new Date(dto.dueDate);
+    const nextStartDate =
+      dto.startDate === undefined ? current.startDate : dto.startDate === null ? null : new Date(dto.startDate);
+    const planning = await resolvePlanningOnUpdate(this.prisma, {
+      projectId: current.projectId,
+      type: 'BUG',
+      id,
+      current: { stageGroupId: current.stageGroupId, parentType: current.parentType, parentId: current.parentId },
+      changes: { stageGroupId: dto.stageGroupId, parentType: dto.parentType, parentId: dto.parentId },
+    });
+    // Una subtarea es una dependencia: el ticket no se cierra mientras tenga subtareas abiertas.
+    if (isFinishedStatus('BUG', nextStatus) && !isFinishedStatus('BUG', current.status)) {
+      await assertNoOpenSubtasks(this.prisma, 'BUG', id);
+    }
     const isFinished = nextStatus === 'RESOLVED' || nextStatus === 'CLOSED';
     const nextSprintId = isReopen
       ? null
@@ -357,6 +410,17 @@ export class BugsService {
         oldValue: current.dueDate ? current.dueDate.toISOString() : null,
         newValue: nextDueDate ? nextDueDate.toISOString() : null,
       },
+      {
+        field: 'start_date',
+        oldValue: current.startDate ? current.startDate.toISOString() : null,
+        newValue: nextStartDate ? nextStartDate.toISOString() : null,
+      },
+      { field: 'stage_group_id', oldValue: current.stageGroupId ?? null, newValue: planning.stageGroupId },
+      {
+        field: 'parent',
+        oldValue: current.parentId ? `${current.parentType}:${current.parentId}` : null,
+        newValue: planning.parentId ? `${planning.parentType}:${planning.parentId}` : null,
+      },
     ].filter((entry) => (entry.oldValue ?? null) !== (entry.newValue ?? null));
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -375,6 +439,11 @@ export class BugsService {
           expected_result = ${nextExpected},
           actual_result = ${nextActual},
           due_date = ${nextDueDate},
+          start_date = ${nextStartDate},
+          stage_group_id = ${planning.stageGroupId},
+          planned_at = CASE WHEN ${planning.stageChanged} THEN ${planning.stageGroupId ? new Date() : null}::timestamp ELSE planned_at END,
+          parent_entity_type = ${planning.parentType},
+          parent_entity_id = ${planning.parentId},
           updated_by = ${ownerId},
           last_change_note = ${dto.changeNote?.trim() || null},
           updated_at = NOW()
@@ -393,6 +462,10 @@ export class BugsService {
           expected_result AS "expectedResult",
           actual_result AS "actualResult",
           due_date AS "dueDate",
+          start_date AS "startDate",
+          stage_group_id AS "stageGroupId",
+          parent_entity_type AS "parentType",
+          parent_entity_id AS "parentId",
           sprint_id AS "sprintId",
           NULL::VARCHAR AS "sprintName",
           NULL::INT AS "sprintSequence",
@@ -510,6 +583,10 @@ export class BugsService {
         expected_result AS "expectedResult",
         actual_result AS "actualResult",
         due_date AS "dueDate",
+        start_date AS "startDate",
+        stage_group_id AS "stageGroupId",
+        parent_entity_type AS "parentType",
+        parent_entity_id AS "parentId",
         sprint_id AS "sprintId",
         NULL::VARCHAR AS "sprintName",
         NULL::INT AS "sprintSequence",
@@ -543,6 +620,10 @@ export class BugsService {
         b.expected_result AS "expectedResult",
         b.actual_result AS "actualResult",
         b.due_date AS "dueDate",
+        b.start_date AS "startDate",
+        b.stage_group_id AS "stageGroupId",
+        b.parent_entity_type AS "parentType",
+        b.parent_entity_id AS "parentId",
         b.sprint_id AS "sprintId",
         s.name AS "sprintName",
         s.sequence AS "sprintSequence",
@@ -596,17 +677,16 @@ export class BugsService {
     return rows[0]?.nextPosition ?? 0;
   }
 
+  /** Código corto del proyecto (RYA). Si aún no tiene, se le asigna con la misma regla que el script SQL. */
   private async getProjectCodePrefix(projectId: string): Promise<string> {
-    const rows = await this.prisma.$queryRaw<Array<{ name: string }>>`
-      SELECT name
-      FROM projects
+    const rows = await this.prisma.$queryRaw<Array<{ code: string | null }>>`
+      UPDATE projects
+      SET code = COALESCE(code, qualio_project_code(name, id))
       WHERE id = ${projectId}
-      LIMIT 1
+      RETURNING code
     `;
 
-    const projectName = rows[0]?.name ?? 'project';
-    const compact = projectName.replace(/[^A-Za-z0-9]/g, '');
-    return (compact || 'project').slice(0, 24);
+    return rows[0]?.code ?? 'PRJ';
   }
 
   private async reserveNextSequence(projectId: string): Promise<number> {

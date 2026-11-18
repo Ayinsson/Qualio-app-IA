@@ -4,6 +4,13 @@ import { randomUUID } from 'crypto';
 import { currentApiTokenId } from '../../common/request-context';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import {
+  assertNoOpenSubtasks,
+  isFinishedStatus,
+  resolvePlanningOnCreate,
+  resolvePlanningOnUpdate,
+  type WorkItemType,
+} from '../planning/subtask-rules';
 import { ProjectMembersService } from '../project-members/project-members.service';
 import { CreateTaskDto, type BacklogSection } from './dto/create-task.dto';
 import { MoveTaskDto } from './dto/move-task.dto';
@@ -21,6 +28,12 @@ export type TaskEntity = {
   position: number;
   assignedTo: string | null;
   dueDate: Date | null;
+  startDate: Date | null;
+  /** Macroactividad del Planning; null en subtareas (heredan la del padre) o sin planificar. */
+  stageGroupId: string | null;
+  /** Si es subtarea: el ticket del que depende. */
+  parentType: WorkItemType | null;
+  parentId: string | null;
   sprintId: string | null;
   sprintName: string | null;
   sprintSequence: number | null;
@@ -71,6 +84,11 @@ export class TasksService {
     const section = dto.section ?? 'GENERAL_BACKLOG';
     const sprintId = section === 'SPRINT_BOARD' ? await this.resolveActiveSprintId(projectId, dto.sprintId) : null;
     const nextPosition = await this.getNextPosition(projectId, section);
+    const planning = await resolvePlanningOnCreate(this.prisma, projectId, {
+      stageGroupId: dto.stageGroupId,
+      parentType: dto.parentType,
+      parentId: dto.parentId,
+    });
     const projectCode = await this.getProjectCodePrefix(projectId);
     const nextSequence = await this.reserveNextSequence(projectId);
     const itemKey = `${projectCode}-${String(nextSequence).padStart(3, '0')}`;
@@ -88,6 +106,11 @@ export class TasksService {
         position,
         assigned_to,
         due_date,
+        start_date,
+        stage_group_id,
+        planned_at,
+        parent_entity_type,
+        parent_entity_id,
         sprint_id,
         completed_in_sprint_id,
         rollover_from_sprint_id,
@@ -107,6 +130,11 @@ export class TasksService {
         ${nextPosition},
         ${dto.assignedTo?.trim() ?? null},
         ${dto.dueDate ? new Date(dto.dueDate) : null},
+        ${dto.startDate ? new Date(dto.startDate) : null},
+        ${planning.stageGroupId},
+        ${planning.stageGroupId ? new Date() : null},
+        ${planning.parentType},
+        ${planning.parentId},
         ${sprintId},
         NULL,
         NULL,
@@ -126,6 +154,10 @@ export class TasksService {
         position,
         assigned_to AS "assignedTo",
         due_date AS "dueDate",
+        start_date AS "startDate",
+        stage_group_id AS "stageGroupId",
+        parent_entity_type AS "parentType",
+        parent_entity_id AS "parentId",
         sprint_id AS "sprintId",
         NULL::VARCHAR AS "sprintName",
         NULL::INT AS "sprintSequence",
@@ -171,6 +203,10 @@ export class TasksService {
           t.position,
           t.assigned_to AS "assignedTo",
           t.due_date AS "dueDate",
+          t.start_date AS "startDate",
+          t.stage_group_id AS "stageGroupId",
+          t.parent_entity_type AS "parentType",
+          t.parent_entity_id AS "parentId",
           t.sprint_id AS "sprintId",
           s.name AS "sprintName",
           s.sequence AS "sprintSequence",
@@ -206,6 +242,10 @@ export class TasksService {
         t.position,
         t.assigned_to AS "assignedTo",
         t.due_date AS "dueDate",
+        t.start_date AS "startDate",
+        t.stage_group_id AS "stageGroupId",
+        t.parent_entity_type AS "parentType",
+        t.parent_entity_id AS "parentId",
         t.sprint_id AS "sprintId",
         s.name AS "sprintName",
         s.sequence AS "sprintSequence",
@@ -318,6 +358,19 @@ export class TasksService {
     const isReopen = current.status === 'DONE' && nextStatus !== 'DONE';
     const nextSection = isReopen ? 'GENERAL_BACKLOG' : dto.section ?? current.section;
     const nextDueDate = dto.dueDate === undefined ? current.dueDate : dto.dueDate === null ? null : new Date(dto.dueDate);
+    const nextStartDate =
+      dto.startDate === undefined ? current.startDate : dto.startDate === null ? null : new Date(dto.startDate);
+    const planning = await resolvePlanningOnUpdate(this.prisma, {
+      projectId: current.projectId,
+      type: 'TASK',
+      id,
+      current: { stageGroupId: current.stageGroupId, parentType: current.parentType, parentId: current.parentId },
+      changes: { stageGroupId: dto.stageGroupId, parentType: dto.parentType, parentId: dto.parentId },
+    });
+    // Una subtarea es una dependencia: el ticket no se cierra mientras tenga subtareas abiertas.
+    if (isFinishedStatus('TASK', nextStatus) && !isFinishedStatus('TASK', current.status)) {
+      await assertNoOpenSubtasks(this.prisma, 'TASK', id);
+    }
     const nextSprintId = isReopen
       ? null
       : nextSection === 'SPRINT_BOARD'
@@ -349,6 +402,17 @@ export class TasksService {
         oldValue: current.dueDate ? current.dueDate.toISOString() : null,
         newValue: nextDueDate ? nextDueDate.toISOString() : null,
       },
+      {
+        field: 'start_date',
+        oldValue: current.startDate ? current.startDate.toISOString() : null,
+        newValue: nextStartDate ? nextStartDate.toISOString() : null,
+      },
+      { field: 'stage_group_id', oldValue: current.stageGroupId ?? null, newValue: planning.stageGroupId },
+      {
+        field: 'parent',
+        oldValue: current.parentId ? `${current.parentType}:${current.parentId}` : null,
+        newValue: planning.parentId ? `${planning.parentType}:${planning.parentId}` : null,
+      },
     ].filter((entry) => (entry.oldValue ?? null) !== (entry.newValue ?? null));
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -365,6 +429,11 @@ export class TasksService {
           rollover_from_sprint_id = ${nextRolloverFromSprintId},
           assigned_to = ${assignedTo},
           due_date = ${nextDueDate},
+          start_date = ${nextStartDate},
+          stage_group_id = ${planning.stageGroupId},
+          planned_at = CASE WHEN ${planning.stageChanged} THEN ${planning.stageGroupId ? new Date() : null}::timestamp ELSE planned_at END,
+          parent_entity_type = ${planning.parentType},
+          parent_entity_id = ${planning.parentId},
           updated_by = ${ownerId},
           last_change_note = ${dto.changeNote?.trim() || null},
           updated_at = NOW()
@@ -381,6 +450,10 @@ export class TasksService {
           position,
           assigned_to AS "assignedTo",
           due_date AS "dueDate",
+          start_date AS "startDate",
+          stage_group_id AS "stageGroupId",
+          parent_entity_type AS "parentType",
+          parent_entity_id AS "parentId",
           sprint_id AS "sprintId",
           NULL::VARCHAR AS "sprintName",
           NULL::INT AS "sprintSequence",
@@ -496,6 +569,10 @@ export class TasksService {
         position,
         assigned_to AS "assignedTo",
         due_date AS "dueDate",
+        start_date AS "startDate",
+        stage_group_id AS "stageGroupId",
+        parent_entity_type AS "parentType",
+        parent_entity_id AS "parentId",
         sprint_id AS "sprintId",
         NULL::VARCHAR AS "sprintName",
         NULL::INT AS "sprintSequence",
@@ -527,6 +604,10 @@ export class TasksService {
         t.position,
         t.assigned_to AS "assignedTo",
         t.due_date AS "dueDate",
+        t.start_date AS "startDate",
+        t.stage_group_id AS "stageGroupId",
+        t.parent_entity_type AS "parentType",
+        t.parent_entity_id AS "parentId",
         t.sprint_id AS "sprintId",
         s.name AS "sprintName",
         s.sequence AS "sprintSequence",
@@ -580,17 +661,16 @@ export class TasksService {
     return rows[0]?.nextPosition ?? 0;
   }
 
+  /** Código corto del proyecto (RYA). Si aún no tiene, se le asigna con la misma regla que el script SQL. */
   private async getProjectCodePrefix(projectId: string): Promise<string> {
-    const rows = await this.prisma.$queryRaw<Array<{ name: string }>>`
-      SELECT name
-      FROM projects
+    const rows = await this.prisma.$queryRaw<Array<{ code: string | null }>>`
+      UPDATE projects
+      SET code = COALESCE(code, qualio_project_code(name, id))
       WHERE id = ${projectId}
-      LIMIT 1
+      RETURNING code
     `;
 
-    const projectName = rows[0]?.name ?? 'project';
-    const compact = projectName.replace(/[^A-Za-z0-9]/g, '');
-    return (compact || 'project').slice(0, 24);
+    return rows[0]?.code ?? 'PRJ';
   }
 
   private async reserveNextSequence(projectId: string): Promise<number> {

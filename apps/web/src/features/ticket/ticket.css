@@ -480,3 +480,68 @@
     flex-basis: 100%;
   }
 }
+
+/* Planning en el ticket: avisos de impacto y subtareas */
+.qt-notice {
+  margin: 0;
+  padding: var(--q-space-2) var(--q-space-3);
+  border-radius: var(--q-radius-md);
+  background: var(--q-run-bg);
+  color: var(--q-run);
+  font-size: var(--q-text-sm);
+  line-height: 1.45;
+}
+
+.qt-notice--warn {
+  background: var(--q-blocked-bg);
+  color: var(--q-blocked);
+}
+
+.qt-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--q-link);
+  font-family: var(--q-font);
+  font-size: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.qt-link:hover {
+  text-decoration: underline;
+}
+
+.qt-subtasks {
+  display: grid;
+  gap: 2px;
+  margin: var(--q-space-2) 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qt-subtasks li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--q-space-2);
+  font-size: var(--q-text-sm);
+}
+
+.qt-subtasks li.is-done .qt-link {
+  color: var(--q-ink-muted);
+  text-decoration: line-through;
+}
+
+.qt-subtask-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px auto;
+  gap: var(--q-space-2);
+  margin-top: var(--q-space-2);
+}
+
+@media (max-width: 520px) {
+  .qt-subtask-form {
+    grid-template-columns: 1fr;
+  }
+}

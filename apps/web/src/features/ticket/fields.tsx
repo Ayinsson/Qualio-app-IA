@@ -21,7 +21,7 @@ export function PriorityPicker({ value, onChange, label = 'Prioridad' }: { value
         {PRIORITIES.map((option) => (
           <label key={option.value} className={value === option.value ? 'is-selected' : undefined}>
             <input type="radio" name={name} checked={value === option.value} onChange={() => onChange(option.value)} />
-            <span className="q-priority__bars" aria-hidden="true">
+            <span className={`q-priority__bars q-priority__bars--${option.level}`} aria-hidden="true">
               {[1, 2, 3].map((bar) => (
                 <span key={bar} className={bar <= option.level ? 'is-on' : undefined} />
               ))}

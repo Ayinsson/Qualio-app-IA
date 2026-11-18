@@ -218,3 +218,123 @@ describe('TicketDetailModal', () => {
     expect(screen.queryByRole('region', { name: 'Comentarios' })).not.toBeInTheDocument();
   });
 });
+
+describe('planning in tickets', () => {
+  const plan = {
+    today: '2026-11-18',
+    project: { overallPct: 44, plannedEnd: '2026-11-27', forecastEnd: '2026-12-18', slipDays: 15 },
+    stages: [
+      {
+        id: 's1',
+        projectId: 'p1',
+        position: 0,
+        code: 'I1',
+        name: 'Análisis',
+        ownerName: null,
+        startDate: '2026-10-27',
+        endDate: '2026-11-27',
+        deliverables: null,
+        exitCriteria: null,
+        createdOn: '2026-10-27',
+        stats: { total: 8, done: 3.5, committed: 8, added: 0, actualPct: 44, expectedPct: 71, status: 'AT_RISK' as const, forecastEnd: '2026-12-18', slipDays: 15 },
+        groups: [
+          { id: 'g1', stageId: 's1', projectId: 'p1', position: 0, name: '1. Plan', ownerName: null, startDate: '2026-10-27', endDate: '2026-11-13', stats: {} as never, tickets: [] },
+          { id: 'g2', stageId: 's1', projectId: 'p1', position: 1, name: '2. Diagnóstico', ownerName: null, startDate: '2026-10-28', endDate: '2026-11-20', stats: {} as never, tickets: [] },
+        ],
+      },
+    ],
+    unplannedTickets: [],
+  };
+
+  it('lets a ticket pick its stage and start date, and previews the impact of joining a running stage', () => {
+    const props = renderDetail({ item: { type: 'task', data: { ...task, status: 'TODO', stageGroupId: null, startDate: null } as Task }, planning: plan });
+
+    const stage = screen.getByLabelText('Etapa');
+    expect(within(stage).getByRole('group', { name: 'I1 · Análisis' })).toBeInTheDocument();
+    fireEvent.change(stage, { target: { value: 'g2' } });
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'La etapa I1 pasaría de 44% a 39% (esperado 71%) · En riesgo. La etapa ya está en curso: se registrará como alcance agregado.',
+    );
+
+    fireEvent.change(screen.getByLabelText('Fecha de inicio'), { target: { value: '2026-11-19' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+    expect(props.onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ stageGroupId: 'g2', startDate: new Date('2026-11-19').toISOString() }),
+    );
+  });
+
+  it('shows the parent instead of a stage selector for a subtask, and keeps its stage untouched', () => {
+    const onOpenTicket = vi.fn();
+    const props = renderDetail({
+      item: { type: 'task', data: { ...task, status: 'TODO', parentType: 'TASK', parentId: 't9' } as Task },
+      planning: plan,
+      parent: { type: 'task', id: 't9', itemKey: 'CAL-009', title: 'Minuta' },
+      onOpenTicket,
+    });
+
+    expect(screen.queryByLabelText('Etapa')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'CAL-009' }));
+    expect(onOpenTicket).toHaveBeenCalledWith({ type: 'task', id: 't9' });
+    expect(screen.queryByRole('region', { name: 'Subtareas' })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Revisar notas de la minuta' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+    expect(vi.mocked(props.onSave).mock.calls[0][0]).not.toHaveProperty('stageGroupId');
+  });
+
+  it('lists subtasks, adds new ones, and warns before closing with open subtasks', async () => {
+    const onAddSubtask = vi.fn().mockResolvedValue(undefined);
+    renderDetail({
+      item: { type: 'task', data: { ...task, status: 'IN_PROGRESS' } as Task },
+      subtasks: [
+        { type: 'task', id: 's1', itemKey: 'CAL-021', title: 'Notas de Román', status: 'DONE' },
+        { type: 'bug', id: 's2', itemKey: 'CAL-022', title: 'Extracción incompleta', status: 'OPEN' },
+      ],
+      onAddSubtask,
+    });
+
+    const section = screen.getByRole('region', { name: 'Subtareas' });
+    expect(within(section).getByText('Extracción incompleta')).toBeInTheDocument();
+    expect(within(section).getByText('Abierta')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/Estado/), { target: { value: 'DONE' } });
+    expect(screen.getByRole('alert')).toHaveTextContent('Falta 1 subtarea por cerrar: no se podrá cerrar todavía.');
+
+    fireEvent.change(within(section).getByLabelText('Título de la subtarea'), { target: { value: 'Pedir complemento a Mayra' } });
+    fireEvent.change(within(section).getByLabelText('Tipo de subtarea'), { target: { value: 'bug' } });
+    fireEvent.click(within(section).getByRole('button', { name: 'Agregar subtarea' }));
+    await waitFor(() => expect(onAddSubtask).toHaveBeenCalledWith({ type: 'bug', title: 'Pedir complemento a Mayra' }));
+  });
+
+  it('warns when a new ticket stays unplanned and lets it be created as a subtask', () => {
+    const onSubmit = vi.fn();
+    render(
+      <CreateTicketModal
+        type="task"
+        members={members}
+        activeSprintName={null}
+        submitting={false}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+        planning={plan}
+        parentOptions={[{ type: 'task', id: 't9', itemKey: 'CAL-009', title: 'Minuta' }]}
+      />,
+    );
+
+    expect(screen.getByRole('status')).toHaveTextContent('Quedará sin planificar y no contará para ninguna etapa.');
+    fireEvent.change(screen.getByLabelText(/Etapa/), { target: { value: 'g1' } });
+    expect(screen.getByRole('status')).toHaveTextContent('elige "Subtarea de" para no ampliar el alcance');
+
+    fireEvent.change(screen.getByLabelText(/Subtarea de/), { target: { value: 'TASK:t9' } });
+    expect(screen.queryByLabelText(/Etapa/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Revisar notas' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Crear tarea' }));
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Revisar notas', parent: 'TASK:t9', stageGroupId: '' }),
+      [],
+      'backlog',
+    );
+  });
+});

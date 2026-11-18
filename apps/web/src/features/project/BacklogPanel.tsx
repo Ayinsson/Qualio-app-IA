@@ -260,6 +260,7 @@ export function BacklogPanel({ items, memberById, drag, onOpen, onMove, emptyPro
                           onOpen(item);
                         }}
                       >
+                        {item.parentKey ? <span className="qx-parent">↳ {item.parentKey}</span> : null}
                         {item.title}
                       </button>
                       <Priority value={item.priority} />

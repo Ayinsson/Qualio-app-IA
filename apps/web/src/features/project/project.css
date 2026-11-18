@@ -830,3 +830,11 @@
     grid-area: action;
   }
 }
+
+/* Subtarea: clave del ticket padre antes del título */
+.qx-parent {
+  margin-right: 6px;
+  color: var(--q-ink-muted);
+  font-size: var(--q-text-xs);
+  font-weight: 500;
+}

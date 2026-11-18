@@ -33,6 +33,22 @@ describe('Priority', () => {
     render(<Priority value="Alta" showLabel={false} />);
     expect(screen.getByText('Prioridad alta')).toBeInTheDocument();
   });
+
+  it('tags the bars with the level so each priority gets its own color', () => {
+    const { container } = render(
+      <>
+        <Priority value="HIGH" />
+        <Priority value="MEDIUM" />
+        <Priority value="LOW" />
+      </>,
+    );
+    const bars = [...container.querySelectorAll('.q-priority__bars')].map((node) => node.className);
+    expect(bars).toEqual([
+      'q-priority__bars q-priority__bars--3',
+      'q-priority__bars q-priority__bars--2',
+      'q-priority__bars q-priority__bars--1',
+    ]);
+  });
 });
 
 describe('getInitials', () => {

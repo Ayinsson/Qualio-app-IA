@@ -9,6 +9,7 @@ import { AttachmentsModule } from './modules/attachments/attachments.module';
 import { BugsModule } from './modules/bugs/bugs.module';
 import { CommentsModule } from './modules/comments/comments.module';
 import { McpModule } from './modules/mcp/mcp.module';
+import { PlanningModule } from './modules/planning/planning.module';
 import { InvitationsModule } from './modules/invitations/invitations.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ProjectMembersModule } from './modules/project-members/project-members.module';
@@ -37,6 +38,7 @@ import { PrismaModule } from './prisma/prisma.module';
     CommentsModule,
     TicketsModule,
     McpModule,
+    PlanningModule,
   ],
   controllers: [AppController],
   providers: [AppService],

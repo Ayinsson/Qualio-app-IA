@@ -26,6 +26,8 @@ ALTER TABLE bugs                   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE work_item_history      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE work_item_attachments  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE work_item_comments     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE project_stages         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE project_stage_groups   ENABLE ROW LEVEL SECURITY;
 
 -- ---------------------------------------------------------------------
 -- 2) Realtime para notifications

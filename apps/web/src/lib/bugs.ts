@@ -18,6 +18,13 @@ export type Bug = {
   expectedResult: string | null;
   actualResult: string | null;
   dueDate: string | null;
+  /** Fecha de inicio (ISO). */
+  startDate: string | null;
+  /** Macroactividad del Planning; null si no está planificado o si es subtarea. */
+  stageGroupId: string | null;
+  /** Si es subtarea: el ticket del que depende. */
+  parentType: 'TASK' | 'BUG' | null;
+  parentId: string | null;
   sprintId: string | null;
   sprintName: string | null;
   sprintSequence: number | null;
@@ -41,6 +48,10 @@ export type CreateBugPayload = {
   expectedResult?: string;
   actualResult?: string;
   dueDate?: string;
+  startDate?: string;
+  stageGroupId?: string;
+  parentType?: 'TASK' | 'BUG';
+  parentId?: string;
 };
 
 export type MoveBugPayload = {
@@ -58,6 +69,10 @@ export type UpdateBugPayload = {
   expectedResult?: string;
   actualResult?: string;
   dueDate?: string | null;
+  startDate?: string | null;
+  stageGroupId?: string | null;
+  parentType?: 'TASK' | 'BUG' | null;
+  parentId?: string | null;
   changeNote?: string;
 };
 

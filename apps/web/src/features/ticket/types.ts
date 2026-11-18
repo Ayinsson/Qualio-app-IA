@@ -15,6 +15,12 @@ export type NewTaskValues = {
   priority: Priority;
   assignedTo: string;
   dueDate: string;
+  /** Fecha de inicio (AAAA-MM-DD) o vacío. */
+  startDate: string;
+  /** Macroactividad del Planning o vacío (sin planificar). */
+  stageGroupId: string;
+  /** "TASK:id" o "BUG:id" si se crea como subtarea; vacío si no. */
+  parent: string;
 };
 
 export type NewBugValues = {
@@ -25,6 +31,12 @@ export type NewBugValues = {
   expectedResult: string;
   actualResult: string;
   dueDate: string;
+  /** Fecha de inicio (AAAA-MM-DD) o vacío. */
+  startDate: string;
+  /** Macroactividad del Planning o vacío (sin planificar). */
+  stageGroupId: string;
+  /** "TASK:id" o "BUG:id" si se crea como subtarea; vacío si no. */
+  parent: string;
 };
 
 export const ATTACHMENTS_ACCEPT = [

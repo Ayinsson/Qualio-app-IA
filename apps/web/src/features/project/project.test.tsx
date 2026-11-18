@@ -258,6 +258,25 @@ describe('DonePanel', () => {
     expect(onReopen).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'task-4' }), 'sprint');
   });
 
+  it('keeps tickets finished outside a sprint in their own group, after the sprints', () => {
+    const withLoose = [
+      ...items,
+      done({ id: 'task-9', entityId: '9', displayKey: 'Ryasa-009', title: 'Importado de Jira', sprintId: null, sprintName: 'Sin sprint', sprintSequence: 0 }),
+    ];
+    const onReopen = vi.fn();
+    render(<DonePanel items={withLoose} activeSprint={{ id: 's1', name: 'Sprint 1' }} reopening={false} onReopen={onReopen} onOpen={vi.fn()} />);
+
+    const headings = screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent);
+    expect(headings).toEqual(['Sprint 1', 'Sprint 0', 'Sin sprint']);
+    const loose = screen.getByRole('region', { name: 'Sin sprint' });
+    expect(within(loose).getByText('Fuera de sprint')).toBeInTheDocument();
+    expect(within(loose).getByText('Importado de Jira')).toBeInTheDocument();
+
+    fireEvent.click(within(loose).getByRole('button', { name: 'Reabrir' }));
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Reabrir Ryasa-009' })).getByRole('button', { name: 'Reabrir ticket' }));
+    expect(onReopen).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'task-9' }), 'backlog');
+  });
+
   it('only offers the backlog when there is no active sprint, and explains an empty tab', () => {
     const { rerender } = render(<DonePanel items={items} activeSprint={null} reopening={false} onReopen={vi.fn()} onOpen={vi.fn()} />);
     fireEvent.click(screen.getAllByRole('button', { name: 'Reabrir' })[0]);
