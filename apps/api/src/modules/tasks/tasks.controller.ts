@@ -1,18 +1,20 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
 
 import { AuthPayload } from '../../auth/auth.types';
-import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { JwtOrApiTokenGuard } from '../../auth/jwt-or-api-token.guard';
+import { RequireScopes } from '../../auth/require-scopes.decorator';
 import { CreateTaskDto, type BacklogSection } from './dto/create-task.dto';
 import { MoveTaskDto } from './dto/move-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { TaskEntity, TaskHistoryEntry, TasksService } from './tasks.service';
 
 @Controller()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtOrApiTokenGuard)
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
   @Post('projects/:projectId/tasks')
+  @RequireScopes('tickets:write')
   create(
     @Req() req: { user?: AuthPayload },
     @Param('projectId') projectId: string,
@@ -22,6 +24,7 @@ export class TasksController {
   }
 
   @Get('projects/:projectId/tasks')
+  @RequireScopes('tickets:read')
   findAll(
     @Req() req: { user?: AuthPayload },
     @Param('projectId') projectId: string,
@@ -31,6 +34,7 @@ export class TasksController {
   }
 
   @Patch('tasks/:id/move')
+  @RequireScopes('tickets:write')
   move(
     @Req() req: { user?: AuthPayload },
     @Param('id') id: string,
@@ -40,6 +44,7 @@ export class TasksController {
   }
 
   @Patch('tasks/:id')
+  @RequireScopes('tickets:write')
   update(
     @Req() req: { user?: AuthPayload },
     @Param('id') id: string,
@@ -49,11 +54,13 @@ export class TasksController {
   }
 
   @Patch('tasks/:id/reopen')
+  @RequireScopes('tickets:write')
   reopen(@Req() req: { user?: AuthPayload }, @Param('id') id: string): Promise<TaskEntity> {
     return this.tasksService.reopen(this.getUserId(req), id);
   }
 
   @Get('tasks/:id/history')
+  @RequireScopes('tickets:read')
   history(
     @Req() req: { user?: AuthPayload },
     @Param('id') id: string,

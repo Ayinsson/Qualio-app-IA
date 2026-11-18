@@ -375,6 +375,19 @@
   background: var(--q-ink);
 }
 
+/* Color por nivel: alta roja, media ámbar, baja azul (el verde queda para "Hecho"). */
+.q-priority__bars--3 span.is-on {
+  background: var(--q-bad);
+}
+
+.q-priority__bars--2 span.is-on {
+  background: var(--q-blocked);
+}
+
+.q-priority__bars--1 span.is-on {
+  background: var(--q-run);
+}
+
 /* ---------- Clave de ítem ---------- */
 .q-key {
   display: inline-flex;

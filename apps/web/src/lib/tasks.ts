@@ -16,6 +16,13 @@ export type Task = {
   position: number;
   assignedTo: string | null;
   dueDate: string | null;
+  /** Fecha de inicio (ISO). */
+  startDate: string | null;
+  /** Macroactividad del Planning; null si no está planificado o si es subtarea. */
+  stageGroupId: string | null;
+  /** Si es subtarea: el ticket del que depende. */
+  parentType: 'TASK' | 'BUG' | null;
+  parentId: string | null;
   sprintId: string | null;
   sprintName: string | null;
   sprintSequence: number | null;
@@ -38,6 +45,10 @@ export type CreateTaskPayload = {
   assignedTo?: string;
   dueDate?: string;
   sprintId?: string;
+  startDate?: string;
+  stageGroupId?: string;
+  parentType?: 'TASK' | 'BUG';
+  parentId?: string;
 };
 
 export type MoveTaskPayload = {
@@ -53,6 +64,10 @@ export type UpdateTaskPayload = {
   section?: BacklogSectionApi;
   assignedTo?: string | null;
   dueDate?: string | null;
+  startDate?: string | null;
+  stageGroupId?: string | null;
+  parentType?: 'TASK' | 'BUG' | null;
+  parentId?: string | null;
   changeNote?: string;
 };
 
@@ -68,6 +83,8 @@ export type WorkItemHistory = {
   oldValue: string | null;
   newValue: string | null;
   changeNote: string | null;
+  /** Nombre del token de API con el que se hizo el cambio; null si fue desde la web. */
+  apiTokenName?: string | null;
   createdAt: string;
 };
 

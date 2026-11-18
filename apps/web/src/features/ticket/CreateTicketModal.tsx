@@ -1,9 +1,12 @@
 import { useId, useState } from 'react';
 import type { FormEvent } from 'react';
 
+import type { PlanningView } from '../../lib/planning';
 import type { ProjectMember } from '../../lib/project-members';
 import { Button, Field, fieldDescribedBy, Input, Modal, Select, Textarea } from '../../ui';
 import { EnvironmentPicker, FileDrop, PriorityPicker } from './fields';
+import { PlanningNotice, StageSelect } from './planningFields';
+import type { TicketRef } from './planningFields';
 import type { Destination, NewBugValues, NewTaskValues, Priority } from './types';
 import './ticket.css';
 
@@ -12,6 +15,10 @@ type Common = {
   activeSprintName: string | null;
   submitting: boolean;
   onClose: () => void;
+  /** Planning del proyecto: selector de etapa y avisos de impacto. */
+  planning?: PlanningView;
+  /** Tickets que pueden ser padre (de primer nivel) para crear una subtarea. */
+  parentOptions?: TicketRef[];
 };
 
 type CreateTicketModalProps =
@@ -52,7 +59,7 @@ function DestinationPicker({
 }
 
 export function CreateTicketModal(props: CreateTicketModalProps) {
-  const { type, members, activeSprintName, submitting, onClose } = props;
+  const { type, members, activeSprintName, submitting, onClose, planning, parentOptions = [] } = props;
   const isBug = type === 'bug';
 
   const [title, setTitle] = useState('');
@@ -60,6 +67,9 @@ export function CreateTicketModal(props: CreateTicketModalProps) {
   const [priority, setPriority] = useState<Priority>('MEDIUM');
   const [assignedTo, setAssignedTo] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [stageGroupId, setStageGroupId] = useState('');
+  const [parent, setParent] = useState('');
   const [environment, setEnvironment] = useState('');
   const [expectedResult, setExpectedResult] = useState('');
   const [actualResult, setActualResult] = useState('');
@@ -83,9 +93,12 @@ export function CreateTicketModal(props: CreateTicketModalProps) {
       return;
     }
 
+    // Una subtarea hereda la etapa de su padre: no se envía la propia.
+    const planningValues = { startDate, stageGroupId: parent ? '' : stageGroupId, parent };
+
     if (props.type === 'task') {
       props.onSubmit(
-        { title: title.trim(), description: description.trim(), priority, assignedTo, dueDate },
+        { title: title.trim(), description: description.trim(), priority, assignedTo, dueDate, ...planningValues },
         files,
         destination,
       );
@@ -99,6 +112,8 @@ export function CreateTicketModal(props: CreateTicketModalProps) {
         environment: environment.trim(),
         expectedResult: expectedResult.trim(),
         actualResult: actualResult.trim(),
+        dueDate,
+        ...planningValues,
       },
       files,
       destination,
@@ -191,6 +206,12 @@ export function CreateTicketModal(props: CreateTicketModalProps) {
               />
             </Field>
           </div>
+        ) : null}
+
+        {isBug ? (
+          <Field id="ticket-due" label="Fecha límite" optional>
+            <Input id="ticket-due" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+          </Field>
         ) : (
           <div className="qt-row">
             <Field id="ticket-assignee" label="Responsable" optional>
@@ -210,6 +231,27 @@ export function CreateTicketModal(props: CreateTicketModalProps) {
         )}
 
         <DestinationPicker value={destination} onChange={setDestination} activeSprintName={activeSprintName} />
+
+        <div className="qt-row">
+          <Field id="ticket-start" label="Fecha de inicio" optional>
+            <Input id="ticket-start" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+          </Field>
+          {parent ? null : <StageSelect id="ticket-stage" plan={planning} value={stageGroupId} onChange={setStageGroupId} />}
+        </div>
+        {parentOptions.length > 0 ? (
+          <Field id="ticket-parent" label="Subtarea de" optional hint="Una subtarea es una dependencia: no amplía el alcance de la etapa.">
+            <Select id="ticket-parent" value={parent} onChange={(event) => setParent(event.target.value)}>
+              <option value="">No es subtarea</option>
+              {parentOptions.map((option) => (
+                <option key={`${option.type}:${option.id}`} value={`${option.type === 'bug' ? 'BUG' : 'TASK'}:${option.id}`}>
+                  {option.itemKey ? `${option.itemKey} · ` : ''}
+                  {option.title}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        ) : null}
+        <PlanningNotice plan={planning} groupId={stageGroupId} isNew isSubtask={Boolean(parent)} />
 
         <FileDrop files={files} onChange={setFiles} label={isBug ? 'Evidencias' : 'Adjuntos'} />
       </form>

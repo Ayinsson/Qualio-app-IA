@@ -1,5 +1,6 @@
 import { IsDateString, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
+import { WORK_ITEM_TYPES, type WorkItemType } from '../../planning/work-item-types';
 export const TASK_PRIORITIES = ['HIGH', 'MEDIUM', 'LOW'] as const;
 export const TASK_STATUSES = ['TODO', 'IN_PROGRESS', 'DONE'] as const;
 export const BACKLOG_SECTIONS = ['NEXT_SPRINT', 'GENERAL_BACKLOG', 'SPRINT_BOARD'] as const;
@@ -40,4 +41,23 @@ export class CreateTaskDto {
   @IsString()
   @MaxLength(36)
   sprintId?: string;
+
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  /** Macroactividad del Planning. No se combina con parentId: la subtarea hereda la del padre. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(36)
+  stageGroupId?: string;
+
+  @IsOptional()
+  @IsIn(WORK_ITEM_TYPES)
+  parentType?: WorkItemType;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(36)
+  parentId?: string;
 }

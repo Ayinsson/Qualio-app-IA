@@ -1,0 +1,298 @@
+/* Tokens de API (Perfil) */
+
+.qat {
+  display: grid;
+  gap: var(--q-space-4);
+}
+
+.qat-intro,
+.qat-muted {
+  margin: 0;
+  color: var(--q-ink-soft);
+  font-size: var(--q-text-md);
+}
+
+.qat-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--q-space-3);
+  padding: var(--q-space-3);
+  border-radius: var(--q-radius-md);
+  background: var(--q-bad-bg);
+  color: var(--q-bad);
+  font-weight: 500;
+}
+
+.qat-list {
+  display: grid;
+  gap: var(--q-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qat-item {
+  display: grid;
+  gap: 6px;
+  padding: var(--q-space-3) var(--q-space-4);
+  border: 1px solid var(--q-line);
+  border-radius: var(--q-radius-lg);
+  background: var(--q-surface);
+}
+
+.qat-item.is-inactive {
+  background: var(--q-surface-2);
+}
+
+.qat-item.is-inactive .qat-item-name,
+.qat-item.is-inactive .qat-prefix {
+  color: var(--q-ink-soft);
+}
+
+.qat-item-head {
+  display: flex;
+  align-items: center;
+  gap: var(--q-space-2);
+  min-width: 0;
+}
+
+.qat-item-name {
+  overflow: hidden;
+  color: var(--q-ink);
+  font-size: var(--q-text-base);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qat-revoke {
+  margin-left: auto;
+  color: var(--q-bad);
+}
+
+.qat-item-head .q-status {
+  margin-left: auto;
+}
+
+.qat-mono {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: var(--q-text-sm);
+}
+
+.qat-prefix {
+  color: var(--q-ink-soft);
+}
+
+.qat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qat-chips li {
+  padding: 2px 8px;
+  border-radius: var(--q-radius-pill);
+  background: var(--q-run-bg);
+  color: var(--q-run);
+  font-size: var(--q-text-xs);
+  font-weight: 500;
+}
+
+.qat-item.is-inactive .qat-chips li {
+  background: var(--q-neutral-bg);
+  color: var(--q-neutral);
+}
+
+.qat-meta {
+  color: var(--q-ink-muted);
+  font-size: var(--q-text-xs);
+}
+
+.qat-confirm {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--q-space-2);
+  padding: 6px 6px 6px 12px;
+  border-radius: var(--q-radius-md);
+  background: var(--q-blocked-bg);
+  color: var(--q-blocked);
+  font-weight: 500;
+}
+
+.qat-confirm span {
+  flex: 1;
+  min-width: 180px;
+}
+
+/* Formulario */
+
+.qat-scopes {
+  display: grid;
+  gap: var(--q-space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.qat-scopes legend {
+  padding: 0;
+}
+
+.qat-scopes-hint {
+  margin: 0 0 var(--q-space-1);
+}
+
+.qat-scope-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--q-space-3);
+  padding: var(--q-space-3);
+  border: 1px solid var(--q-line);
+  border-radius: var(--q-radius-md);
+}
+
+.qat-scope-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.qat-scope-text strong {
+  color: var(--q-ink);
+  font-size: var(--q-text-md);
+  font-weight: 600;
+}
+
+.qat-scope-text span {
+  color: var(--q-ink-soft);
+  font-size: var(--q-text-xs);
+}
+
+.qat-scope-options {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--q-space-2) var(--q-space-3);
+}
+
+.qat-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--q-ink);
+  font-size: var(--q-text-md);
+  cursor: pointer;
+}
+
+.qat-check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--q-primary);
+}
+
+/* Token creado */
+
+.qat-warning {
+  margin: 0;
+  padding: var(--q-space-3);
+  border-radius: var(--q-radius-md);
+  background: var(--q-blocked-bg);
+  color: var(--q-blocked);
+  font-size: var(--q-text-md);
+  font-weight: 500;
+}
+
+.qat-copy {
+  display: flex;
+  gap: var(--q-space-2);
+}
+
+.qat-copy .q-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.qat-snippet {
+  margin: 0;
+  padding: var(--q-space-3);
+  overflow-x: auto;
+  border-radius: var(--q-radius-md);
+  background: var(--q-surface-2);
+  color: var(--q-ink);
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: var(--q-text-xs);
+  line-height: 1.6;
+}
+
+.qat-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 3px;
+  border-radius: var(--q-radius-md);
+  background: var(--q-surface-2);
+  justify-self: start;
+}
+
+.qat-tab {
+  padding: 5px 10px;
+  border: 0;
+  border-radius: var(--q-radius-sm);
+  background: transparent;
+  color: var(--q-ink-soft);
+  font-family: var(--q-font);
+  font-size: var(--q-text-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.qat-tab:hover {
+  color: var(--q-ink);
+}
+
+.qat-tab.is-active {
+  background: var(--q-surface);
+  color: var(--q-ink);
+  box-shadow: 0 1px 2px rgba(4, 16, 54, 0.12);
+}
+
+.qat-tab:focus-visible {
+  outline: 2px solid var(--q-focus);
+  outline-offset: 1px;
+}
+
+.qat-snippet-wrap {
+  position: relative;
+}
+
+.qat-snippet-wrap .qat-snippet {
+  padding-right: 88px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.qat-snippet-copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+}
+
+@media (max-width: 520px) {
+  .qat-scope-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .qat-copy {
+    flex-direction: column;
+  }
+}

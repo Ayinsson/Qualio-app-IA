@@ -14,19 +14,23 @@ type DonePanelProps = {
   onOpen: (item: DoneItem) => void;
 };
 
+/** Grupo de lo terminado fuera de un sprint: siempre al final, después de los sprints. */
+const NO_SPRINT_GROUP = '__no_sprint__';
+
 type SprintGroup = { id: string; name: string; sequence: number; items: DoneItem[] };
 
 function groupBySprint(items: DoneItem[]): SprintGroup[] {
   const groups = new Map<string, SprintGroup>();
   items.forEach((item) => {
-    const group = groups.get(item.sprintId) ?? {
-      id: item.sprintId,
+    const id = item.sprintId ?? NO_SPRINT_GROUP;
+    const group = groups.get(id) ?? {
+      id,
       name: item.sprintName,
-      sequence: item.sprintSequence,
+      sequence: item.sprintId ? item.sprintSequence : Number.NEGATIVE_INFINITY,
       items: [],
     };
     group.items.push(item);
-    groups.set(item.sprintId, group);
+    groups.set(id, group);
   });
 
   return [...groups.values()]
@@ -60,7 +64,7 @@ export function DonePanel({ items, activeSprint, reopening, onReopen, onOpen }: 
         <EmptyState
           icon={<TaskIcon size={22} />}
           title="Aún no hay tickets terminados"
-          description="Cuando marques un ticket como hecho en el tablero, quedará aquí agrupado por sprint."
+          description="Cuando marques un ticket como hecho, quedará aquí agrupado por sprint."
         />
       </Card>
     );
@@ -111,11 +115,18 @@ export function DonePanel({ items, activeSprint, reopening, onReopen, onOpen }: 
 
       {groups.map((group) => {
         const isCurrent = group.id === activeSprint?.id;
+        const outsideSprint = group.id === NO_SPRINT_GROUP;
         return (
           <section key={group.id} className="qx-section" aria-label={group.name}>
             <header className="qx-section-head">
               <h2>{group.name}</h2>
-              <span className={`qd-chip ${isCurrent ? 'is-current' : 'is-closed'}`}>{isCurrent ? 'En curso' : 'Cerrado'}</span>
+              {outsideSprint ? (
+                <span className="qd-chip is-closed" title="Terminados desde el backlog o importados, sin pasar por un sprint">
+                  Fuera de sprint
+                </span>
+              ) : (
+                <span className={`qd-chip ${isCurrent ? 'is-current' : 'is-closed'}`}>{isCurrent ? 'En curso' : 'Cerrado'}</span>
+              )}
               <span className="qx-count">{countLabel(group.items)}</span>
             </header>
             <ul className="qx-rows">

@@ -12,9 +12,11 @@ export type PlanItem = {
   dueDate: string | null;
   section: BacklogSectionId;
   position: number;
+  /** Clave del ticket padre si es subtarea (se muestra como "↳ RYA-020"). */
+  parentKey?: string | null;
 };
 
-export type ProjectTabId = 'backlog' | 'board' | 'done' | 'reports';
+export type ProjectTabId = 'backlog' | 'board' | 'done' | 'planning' | 'reports';
 
 export type BoardColumnId = 'todo' | 'progress' | 'done';
 
@@ -32,6 +34,8 @@ export type BoardCard = {
   environment: string | null;
   /** Nombre del sprint del que viene arrastrado, si aplica. */
   rolloverFrom: string | null;
+  /** Clave del ticket padre si es subtarea (se muestra como "↳ RYA-020"). */
+  parentKey?: string | null;
 };
 
 /** Ticket terminado dentro de un sprint (pestaña Completado). */
@@ -42,7 +46,8 @@ export type DoneItem = {
   displayKey: string;
   title: string;
   priority: 'HIGH' | 'MEDIUM' | 'LOW';
-  sprintId: string;
+  /** Sprint en el que se terminó; null si se cerró fuera de un sprint (desde el backlog o importado). */
+  sprintId: string | null;
   sprintName: string;
   sprintSequence: number;
   /** Última modificación: la API no guarda el instante exacto en que se terminó. */

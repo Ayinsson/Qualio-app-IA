@@ -19,6 +19,8 @@ import { changePassword, login, register, removeAvatar, resolveSession, updateAv
 import { getProject, listProjects } from './lib/projects';
 import { listAttachments, registerAttachment } from './lib/attachments';
 import { createBug, listBugHistory, listBugs, moveBug, reopenBug, updateBug, type Bug } from './lib/bugs';
+import { createComment, listComments } from './lib/comments';
+import { getPlanning } from './lib/planning';
 import {
   acceptInvitation,
   cancelProjectInvitation,
@@ -35,10 +37,13 @@ import { ProjectsView } from './features/projects/ProjectsView';
 import { BacklogPanel } from './features/project/BacklogPanel';
 import { BoardPanel } from './features/project/BoardPanel';
 import { DonePanel } from './features/project/DonePanel';
+import { PlanningPanel } from './features/project/planning/PlanningPanel';
+import type { TicketRef } from './features/ticket/planningFields';
 import { ReportsPanel } from './features/project/reports/ReportsPanel';
 import { InvitationsPage } from './features/collab/InvitationsPage';
 import { MembersModal } from './features/collab/MembersModal';
 import { SharedProjectsView } from './features/collab/SharedProjectsView';
+import { ApiTokensDialog } from './features/profile/ApiTokensDialog';
 import { ProfileModal } from './features/profile/ProfileModal';
 import { CreateTicketModal } from './features/ticket/CreateTicketModal';
 import { TicketDetailModal } from './features/ticket/TicketDetailModal';
@@ -153,7 +158,7 @@ type ToastState = {
 
 type ThemeMode = 'light' | 'dark';
 
-type ProjectWorkspaceTab = 'backlog' | 'board' | 'done' | 'reports';
+type ProjectWorkspaceTab = 'backlog' | 'board' | 'done' | 'planning' | 'reports';
 type BacklogSection = 'nextSprint' | 'general';
 
 type BacklogItem = {
@@ -182,6 +187,7 @@ const workspaceTabs: Array<{ id: ProjectWorkspaceTab; label: string }> = [
   { id: 'backlog', label: 'Backlog' },
   { id: 'board', label: 'Tablero' },
   { id: 'done', label: 'Completado' },
+  { id: 'planning', label: 'Planning' },
   { id: 'reports', label: 'Reportes' },
 ];
 
@@ -668,6 +674,7 @@ function AppShell({
   const [notificationsLimit, setNotificationsLimit] = useState(20);
   const [notificationFilter, setNotificationFilter] = useState<NotificationFilter>('ALL');
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [apiTokensOpen, setApiTokensOpen] = useState(false);
   const [browserAlerts, setBrowserAlerts] = useState<BrowserAlertsState>(() =>
     typeof window !== 'undefined' && 'Notification' in window ? window.Notification.permission : 'unsupported',
   );
@@ -1022,9 +1029,15 @@ function AppShell({
           userEmail={userEmail}
           avatarUrl={storedUser?.avatarUrl ?? null}
           onUserUpdated={setStoredUser}
+          onManageApiTokens={() => {
+            setProfileModalOpen(false);
+            setApiTokensOpen(true);
+          }}
           onClose={() => setProfileModalOpen(false)}
         />
       ) : null}
+
+      {apiTokensOpen ? <ApiTokensDialog accessToken={accessToken} onClose={() => setApiTokensOpen(false)} /> : null}
     </div>
   );
 }
@@ -1036,6 +1049,7 @@ function ProfileDialog({
   userEmail,
   avatarUrl,
   onUserUpdated,
+  onManageApiTokens,
   onClose,
 }: {
   accessToken: string | null;
@@ -1043,6 +1057,7 @@ function ProfileDialog({
   userEmail: string;
   avatarUrl: string | null;
   onUserUpdated: (user: StoredUser) => void;
+  onManageApiTokens: () => void;
   onClose: () => void;
 }) {
   const toast = useToast();
@@ -1080,6 +1095,7 @@ function ProfileDialog({
   return (
     <ProfileModal
       user={{ name: userName, email: userEmail, avatarUrl }}
+      onManageApiTokens={onManageApiTokens}
       onClose={onClose}
       onSaveName={(name) =>
         run(async () => {
@@ -1130,6 +1146,36 @@ function ProfileDialog({
       }
     />
   );
+}
+
+const NO_SPRINT_LABEL = 'Sin sprint';
+
+/** Clave del ticket padre de una subtarea, para marcarla en backlog y tablero. */
+function parentKeyOf(
+  item: { parentType?: 'TASK' | 'BUG' | null; parentId?: string | null },
+  tasks: Task[] | undefined,
+  bugs: Bug[] | undefined,
+): string | null {
+  if (!item.parentId) {
+    return null;
+  }
+  const source: Array<{ id: string; itemKey: string | null }> = item.parentType === 'BUG' ? bugs ?? [] : tasks ?? [];
+  return source.find((candidate) => candidate.id === item.parentId)?.itemKey ?? null;
+}
+
+/** "TASK:id" / "BUG:id" del formulario de creación → campos de padre para la API. */
+function parentFields(parent: string): { parentType?: 'TASK' | 'BUG'; parentId?: string } {
+  const [type, id] = parent.split(':');
+  return (type === 'TASK' || type === 'BUG') && id ? { parentType: type, parentId: id } : {};
+}
+
+/** Un ticket terminado no es trabajo pendiente: sale del backlog y del tablero. */
+function isFinishedTask(status: Task['status']): boolean {
+  return status === 'DONE';
+}
+
+function isFinishedBug(status: Bug['status']): boolean {
+  return status === 'RESOLVED' || status === 'CLOSED';
 }
 
 const TASK_STATUS_BY_COLUMN: Record<BoardColumnId, Task['status']> = {
@@ -1234,6 +1280,13 @@ function ProjectDetailView() {
     retry: false,
   });
 
+  const planningQuery = useQuery({
+    queryKey: ['planning', projectId],
+    queryFn: () => getPlanning(accessToken as string, projectId as string),
+    enabled: Boolean(accessToken && projectId),
+    retry: false,
+  });
+
   const membersQuery = useQuery({
     queryKey: ['project-members', projectId],
     queryFn: () => {
@@ -1304,6 +1357,19 @@ function ProjectDetailView() {
     retry: false,
   });
 
+  const commentsQuery = useQuery({
+    queryKey: ['comments', selectedWorkItem?.type, selectedWorkItem?.id],
+    queryFn: () => {
+      if (!accessToken || !selectedWorkItem) {
+        throw new Error('No hay elemento seleccionado.');
+      }
+
+      return listComments(accessToken, selectedWorkItem.type === 'task' ? 'TASK' : 'BUG', selectedWorkItem.id);
+    },
+    enabled: Boolean(accessToken && selectedWorkItem),
+    retry: false,
+  });
+
   const addMemberMutation = useMutation({
     mutationFn: async (email: string) => {
       if (!accessToken || !projectId) {
@@ -1333,6 +1399,7 @@ function ProjectDetailView() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project-members', projectId] });
       queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['planning', projectId] });
       setToast({ message: 'Participante quitado del proyecto.', type: 'success' });
     },
     onError: (error) => {
@@ -1372,6 +1439,9 @@ function ProjectDetailView() {
         sprintId: destination === 'sprint' ? activeSprintQuery.data?.id : undefined,
         assignedTo: values.assignedTo || undefined,
         dueDate: values.dueDate ? new Date(values.dueDate).toISOString() : undefined,
+        startDate: values.startDate ? new Date(values.startDate).toISOString() : undefined,
+        stageGroupId: values.stageGroupId || undefined,
+        ...parentFields(values.parent),
       });
 
       await uploadAttachments('TASK', created.id, files);
@@ -1379,6 +1449,7 @@ function ProjectDetailView() {
     },
     onSuccess: (created, { destination }) => {
       queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['planning', projectId] });
       setActiveTab(destination === 'sprint' ? 'board' : 'backlog');
       setCreateWorkItemType(null);
       setToast({ message: `${created.itemKey ?? 'La tarea'} se creó en ${DESTINATION_LABEL[destination]}.`, type: 'success' });
@@ -1402,6 +1473,10 @@ function ProjectDetailView() {
         environment: values.environment || undefined,
         expectedResult: values.expectedResult || undefined,
         actualResult: values.actualResult || undefined,
+        dueDate: values.dueDate ? new Date(values.dueDate).toISOString() : undefined,
+        startDate: values.startDate ? new Date(values.startDate).toISOString() : undefined,
+        stageGroupId: values.stageGroupId || undefined,
+        ...parentFields(values.parent),
       });
 
       await uploadAttachments('BUG', created.id, files);
@@ -1409,6 +1484,7 @@ function ProjectDetailView() {
     },
     onSuccess: (created, { destination }) => {
       queryClient.invalidateQueries({ queryKey: ['bugs', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['planning', projectId] });
       setActiveTab(destination === 'sprint' ? 'board' : 'backlog');
       setCreateWorkItemType(null);
       setToast({ message: `${created.itemKey ?? 'El bug'} se reportó en ${DESTINATION_LABEL[destination]}.`, type: 'success' });
@@ -1510,6 +1586,7 @@ function ProjectDetailView() {
     onError: (error, payload, context) => onBacklogMoveError('tasks', error, payload, context),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['planning', projectId] });
     },
   });
 
@@ -1545,6 +1622,7 @@ function ProjectDetailView() {
     onError: (error, payload, context) => onBacklogMoveError('bugs', error, payload, context),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['bugs', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['planning', projectId] });
     },
   });
 
@@ -1559,6 +1637,7 @@ function ProjectDetailView() {
     onSuccess: (sprint) => {
       queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
       queryClient.invalidateQueries({ queryKey: ['bugs', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['planning', projectId] });
       queryClient.invalidateQueries({ queryKey: ['active-sprint', projectId] });
       setToast({ message: `${sprint.name} iniciado correctamente.`, type: 'success' });
       setActiveTab('board');
@@ -1605,6 +1684,7 @@ function ProjectDetailView() {
     },
     onSuccess: (_result, payload) => {
       queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['planning', projectId] });
       setToast({
         message: payload.sendToCurrentSprint
           ? `${payload.displayKey} volvió al tablero del sprint en curso.`
@@ -1657,6 +1737,7 @@ function ProjectDetailView() {
     },
     onSuccess: (_result, payload) => {
       queryClient.invalidateQueries({ queryKey: ['bugs', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['planning', projectId] });
       setToast({
         message: payload.sendToCurrentSprint
           ? `${payload.displayKey} volvió al tablero del sprint en curso.`
@@ -1682,6 +1763,8 @@ function ProjectDetailView() {
       section: 'NEXT_SPRINT' | 'GENERAL_BACKLOG' | 'SPRINT_BOARD';
       assignedTo: string | null;
       dueDate: string | null;
+      startDate: string | null;
+      stageGroupId?: string | null;
       changeNote: string;
     }) => {
       if (!accessToken) {
@@ -1696,11 +1779,14 @@ function ProjectDetailView() {
         section: payload.section,
         assignedTo: payload.assignedTo,
         dueDate: payload.dueDate,
+        startDate: payload.startDate,
+        stageGroupId: payload.stageGroupId,
         changeNote: payload.changeNote,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['planning', projectId] });
       if (selectedWorkItem?.type === 'task' && selectedWorkItem.id) {
         queryClient.invalidateQueries({ queryKey: ['history', 'task', selectedWorkItem.id] });
       }
@@ -1722,6 +1808,9 @@ function ProjectDetailView() {
       environment: string;
       expectedResult: string;
       actualResult: string;
+      dueDate: string | null;
+      startDate: string | null;
+      stageGroupId?: string | null;
       changeNote: string;
     }) => {
       if (!accessToken) {
@@ -1737,11 +1826,15 @@ function ProjectDetailView() {
         environment: payload.environment,
         expectedResult: payload.expectedResult,
         actualResult: payload.actualResult,
+        dueDate: payload.dueDate,
+        startDate: payload.startDate,
+        stageGroupId: payload.stageGroupId,
         changeNote: payload.changeNote,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bugs', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['planning', projectId] });
       if (selectedWorkItem?.type === 'bug' && selectedWorkItem.id) {
         queryClient.invalidateQueries({ queryKey: ['history', 'bug', selectedWorkItem.id] });
       }
@@ -1840,6 +1933,7 @@ function ProjectDetailView() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
       queryClient.invalidateQueries({ queryKey: ['bugs', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['planning', projectId] });
     },
   });
 
@@ -1871,12 +1965,13 @@ function ProjectDetailView() {
       memberNameById.set(member.userId, member.name?.trim() || member.email);
     });
 
+    // El backlog es trabajo pendiente: lo terminado vive en Completado, haya pasado o no por un sprint.
     const tasks = (tasksQuery.data ?? [])
-      .filter((task) => task.section !== 'SPRINT_BOARD')
-      .map((task) => fromTaskToBacklogItem(task, memberNameById));
+      .filter((task) => task.section !== 'SPRINT_BOARD' && !isFinishedTask(task.status))
+      .map((task) => ({ ...fromTaskToBacklogItem(task, memberNameById), parentKey: parentKeyOf(task, tasksQuery.data, bugsQuery.data) }));
     const bugs = (bugsQuery.data ?? [])
-      .filter((bug) => bug.section !== 'SPRINT_BOARD')
-      .map((bug) => fromBugToBacklogItem(bug));
+      .filter((bug) => bug.section !== 'SPRINT_BOARD' && !isFinishedBug(bug.status))
+      .map((bug) => ({ ...fromBugToBacklogItem(bug), parentKey: parentKeyOf(bug, tasksQuery.data, bugsQuery.data) }));
 
     const sorted = [...tasks, ...bugs].sort((a, b) => {
       if (a.section !== b.section) {
@@ -1950,6 +2045,26 @@ function ProjectDetailView() {
   const selectedBug = selectedWorkItem?.type === 'bug'
     ? (bugsQuery.data ?? []).find((bug) => bug.id === selectedWorkItem.id) ?? null
     : null;
+  const ticketRefs: Array<TicketRef & { parentType: 'TASK' | 'BUG' | null; parentId: string | null }> = [
+    ...(tasksQuery.data ?? []).map((task) => ({
+      type: 'task' as const, id: task.id, itemKey: task.itemKey, title: task.title, status: task.status,
+      parentType: task.parentType ?? null, parentId: task.parentId ?? null,
+    })),
+    ...(bugsQuery.data ?? []).map((bug) => ({
+      type: 'bug' as const, id: bug.id, itemKey: bug.itemKey, title: bug.title, status: bug.status,
+      parentType: bug.parentType ?? null, parentId: bug.parentId ?? null,
+    })),
+  ];
+  const apiType = (type: 'task' | 'bug') => (type === 'task' ? 'TASK' : 'BUG');
+  const selectedRef = selectedWorkItem ? ticketRefs.find((ref) => ref.type === selectedWorkItem.type && ref.id === selectedWorkItem.id) : undefined;
+  const selectedParent = selectedRef?.parentId
+    ? ticketRefs.find((ref) => apiType(ref.type) === selectedRef.parentType && ref.id === selectedRef.parentId) ?? null
+    : null;
+  const selectedSubtasks = selectedRef
+    ? ticketRefs.filter((ref) => ref.parentType === apiType(selectedRef.type) && ref.parentId === selectedRef.id)
+    : [];
+  // Solo tickets de primer nivel pueden ser padres (un solo nivel de subtareas).
+  const parentOptions = ticketRefs.filter((ref) => !ref.parentId);
   const nextSprintTotal = backlogItems.filter((item) => item.section === 'nextSprint').length;
   // La API responde con cuerpo vacío cuando no hay sprint activo.
   const activeSprint = activeSprintQuery.data || null;
@@ -1978,6 +2093,7 @@ function ProjectDetailView() {
       dueDate: task.dueDate,
       environment: null,
       rolloverFrom: task.rolloverFromSprintName,
+      parentKey: parentKeyOf(task, tasksQuery.data, bugsQuery.data),
     })),
     ...(bugsQuery.data ?? []).filter(inActiveSprint).map((bug) => ({
       id: `bug-${bug.id}`,
@@ -1988,9 +2104,10 @@ function ProjectDetailView() {
       priority: bug.priority,
       column: boardColumnOf(bug.status),
       assigneeUserId: null,
-      dueDate: null,
+      dueDate: bug.dueDate,
       environment: bug.environment,
       rolloverFrom: bug.rolloverFromSprintName,
+      parentKey: parentKeyOf(bug, tasksQuery.data, bugsQuery.data),
     })),
   ];
   const boardTasks = (tasksQuery.data ?? []).filter((task) => task.section === 'SPRINT_BOARD' && task.status !== 'DONE');
@@ -2025,7 +2142,7 @@ function ProjectDetailView() {
   ];
   const doneItems: DoneItem[] = [
     ...(tasksQuery.data ?? [])
-      .filter((task) => task.status === 'DONE' && task.completedInSprintId)
+      .filter((task) => isFinishedTask(task.status))
       .map((task) => ({
         id: `task-${task.id}`,
         entityId: task.id,
@@ -2033,13 +2150,13 @@ function ProjectDetailView() {
         displayKey: task.itemKey ?? `TASK-${task.id.slice(0, 6).toUpperCase()}`,
         title: task.title,
         priority: task.priority,
-        sprintId: task.completedInSprintId as string,
-        sprintName: task.completedInSprintName ?? 'Sprint',
+        sprintId: task.completedInSprintId,
+        sprintName: task.completedInSprintId ? (task.completedInSprintName ?? 'Sprint') : NO_SPRINT_LABEL,
         sprintSequence: task.completedInSprintSequence ?? 0,
         completedAt: task.updatedAt,
       })),
     ...(bugsQuery.data ?? [])
-      .filter((bug) => (bug.status === 'RESOLVED' || bug.status === 'CLOSED') && bug.completedInSprintId)
+      .filter((bug) => isFinishedBug(bug.status))
       .map((bug) => ({
         id: `bug-${bug.id}`,
         entityId: bug.id,
@@ -2047,8 +2164,8 @@ function ProjectDetailView() {
         displayKey: bug.itemKey ?? `BUG-${bug.id.slice(0, 6).toUpperCase()}`,
         title: bug.title,
         priority: bug.priority,
-        sprintId: bug.completedInSprintId as string,
-        sprintName: bug.completedInSprintName ?? 'Sprint',
+        sprintId: bug.completedInSprintId,
+        sprintName: bug.completedInSprintId ? (bug.completedInSprintName ?? 'Sprint') : NO_SPRINT_LABEL,
         sprintSequence: bug.completedInSprintSequence ?? 0,
         completedAt: bug.updatedAt,
       })),
@@ -2251,6 +2368,14 @@ function ProjectDetailView() {
         {activeTab === 'reports' ? (
           <ReportsPanel accessToken={accessToken ?? ''} projectId={projectId ?? ''} />
         ) : null}
+
+        {activeTab === 'planning' ? (
+          <PlanningPanel
+            accessToken={accessToken ?? ''}
+            projectId={projectId ?? ''}
+            onOpenTicket={(ticket) => setSelectedWorkItem(ticket)}
+          />
+        ) : null}
       </section>
 
       {createWorkItemType === 'task' ? (
@@ -2259,6 +2384,8 @@ function ProjectDetailView() {
           members={membersQuery.data ?? []}
           activeSprintName={activeSprint?.name ?? null}
           submitting={createTaskMutation.isPending}
+          planning={planningQuery.data}
+          parentOptions={parentOptions}
           onClose={() => setCreateWorkItemType(null)}
           onSubmit={(values, files, destination) => createTaskMutation.mutate({ values, files, destination })}
         />
@@ -2270,6 +2397,8 @@ function ProjectDetailView() {
           members={membersQuery.data ?? []}
           activeSprintName={activeSprint?.name ?? null}
           submitting={createBugMutation.isPending}
+          planning={planningQuery.data}
+          parentOptions={parentOptions}
           onClose={() => setCreateWorkItemType(null)}
           onSubmit={(values, files, destination) => createBugMutation.mutate({ values, files, destination })}
         />
@@ -2307,6 +2436,48 @@ function ProjectDetailView() {
           loadingAttachments={attachmentsQuery.isLoading}
           history={historyQuery.data ?? []}
           loadingHistory={historyQuery.isLoading}
+          comments={commentsQuery.data ?? []}
+          loadingComments={commentsQuery.isLoading}
+          planning={planningQuery.data}
+          parent={selectedParent}
+          subtasks={selectedSubtasks}
+          onOpenTicket={(ticket) => setSelectedWorkItem(ticket)}
+          onAddSubtask={async ({ type, title }) => {
+            if (!accessToken || !projectId || !selectedWorkItem) {
+              return;
+            }
+            const parentRef = { parentType: apiType(selectedWorkItem.type), parentId: selectedWorkItem.id } as const;
+            try {
+              const created =
+                type === 'task'
+                  ? await createTask(accessToken, projectId, { title, ...parentRef })
+                  : await createBug(accessToken, projectId, {
+                      title,
+                      description: `Subtarea de ${selectedRef?.itemKey ?? 'otro ticket'}: ${title}`,
+                      ...parentRef,
+                    });
+              await Promise.all([
+                queryClient.invalidateQueries({ queryKey: [type === 'task' ? 'tasks' : 'bugs', projectId] }),
+                queryClient.invalidateQueries({ queryKey: ['planning', projectId] }),
+              ]);
+              setToast({ message: `${created.itemKey ?? 'La subtarea'} se creó como subtarea.`, type: 'success' });
+            } catch (error) {
+              setToast({ message: getApiErrorMessage(error), type: 'error' });
+              throw error;
+            }
+          }}
+          onAddComment={async (body) => {
+            if (!accessToken || !selectedWorkItem) {
+              return;
+            }
+            try {
+              await createComment(accessToken, selectedWorkItem.type === 'task' ? 'TASK' : 'BUG', selectedWorkItem.id, body);
+              await queryClient.invalidateQueries({ queryKey: ['comments', selectedWorkItem.type, selectedWorkItem.id] });
+            } catch (error) {
+              setToast({ message: getApiErrorMessage(error), type: 'error' });
+              throw error;
+            }
+          }}
           saving={updateTaskMutation.isPending || updateBugMutation.isPending}
           onSave={(payload) => {
             if (payload.type === 'task') {
@@ -2373,7 +2544,7 @@ function fromBugToBacklogItem(bug: Bug): BacklogItem {
     status: fromBugStatus(bug.status),
     assignee: 'Sin asignar',
     assigneeUserId: null,
-    dueDate: null,
+    dueDate: bug.dueDate,
     section: bug.section === 'NEXT_SPRINT' ? 'nextSprint' : 'general',
     position: bug.position,
   };

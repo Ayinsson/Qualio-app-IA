@@ -10,6 +10,7 @@ export type HistoryEntry = {
   oldValue: string | null;
   newValue: string | null;
   changeNote: string | null;
+  apiTokenName?: string | null;
   createdAt: string;
 };
 
@@ -23,6 +24,8 @@ export type ActivityEvent = {
   /** Una frase por cambio, en partes para resaltar los valores. */
   lines: Part[][];
   note: string | null;
+  /** Nombre del token de API si el cambio lo hizo un agente o integración. */
+  via: string | null;
 };
 
 type Context = {
@@ -127,6 +130,7 @@ export function buildActivity(entries: HistoryEntry[], context: Context): Activi
         at: entry.createdAt,
         lines: [],
         note: null,
+        via: entry.apiTokenName ?? null,
       };
       if (line) {
         group.lines.push(line);

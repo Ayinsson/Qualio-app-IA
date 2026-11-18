@@ -10,6 +10,7 @@ const TABS: Array<{ id: ProjectTabId; label: string }> = [
   { id: 'backlog', label: 'Backlog' },
   { id: 'board', label: 'Tablero' },
   { id: 'done', label: 'Completado' },
+  { id: 'planning', label: 'Planning' },
   { id: 'reports', label: 'Reportes' },
 ];
 

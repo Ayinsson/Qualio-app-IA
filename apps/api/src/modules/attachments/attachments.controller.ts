@@ -1,21 +1,24 @@
 import { Body, Controller, Get, Param, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
 
 import { AuthPayload } from '../../auth/auth.types';
-import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { JwtOrApiTokenGuard } from '../../auth/jwt-or-api-token.guard';
+import { RequireScopes } from '../../auth/require-scopes.decorator';
 import { AttachmentsService, type AttachmentEntity } from './attachments.service';
 import { ATTACHMENT_ENTITY_TYPES, type AttachmentEntityType, CreateAttachmentDto } from './dto/create-attachment.dto';
 
 @Controller('attachments')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtOrApiTokenGuard)
 export class AttachmentsController {
   constructor(private readonly attachmentsService: AttachmentsService) {}
 
   @Post()
+  @RequireScopes('evidences:write')
   create(@Req() req: { user?: AuthPayload }, @Body() dto: CreateAttachmentDto): Promise<AttachmentEntity> {
     return this.attachmentsService.create(this.getUserId(req), dto);
   }
 
   @Get(':entityType/:entityId')
+  @RequireScopes('evidences:read')
   findByEntity(
     @Req() req: { user?: AuthPayload },
     @Param('entityType') entityType: string,

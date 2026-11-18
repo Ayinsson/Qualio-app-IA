@@ -44,6 +44,26 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id)
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token_hash ON refresh_tokens(token_hash);
 
+-- Tokens de API personales (para integraciones y agentes de IA).
+-- Solo se guarda el hash SHA-256 del token; el valor completo se muestra
+-- una unica vez al crearlo. token_prefix permite reconocerlo en la lista.
+CREATE TABLE IF NOT EXISTS api_tokens (
+  id VARCHAR(36) PRIMARY KEY,
+  user_id VARCHAR(36) NOT NULL,
+  name VARCHAR(60) NOT NULL,
+  token_prefix VARCHAR(16) NOT NULL,
+  token_hash CHAR(64) NOT NULL,
+  scopes TEXT[] NOT NULL,
+  expires_at TIMESTAMP,
+  last_used_at TIMESTAMP,
+  revoked_at TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_api_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT uq_api_tokens_token_hash UNIQUE (token_hash)
+);
+
+CREATE INDEX IF NOT EXISTS idx_api_tokens_user_id ON api_tokens(user_id);
+
 -- ---------------------------------------------------------------------
 -- Proyectos, miembros, secuencias e invitaciones
 -- ---------------------------------------------------------------------
@@ -234,6 +254,9 @@ CREATE INDEX IF NOT EXISTS idx_bugs_project_section_position ON bugs(project_id,
 CREATE INDEX IF NOT EXISTS idx_bugs_sprint ON bugs(sprint_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_bugs_item_key ON bugs(item_key);
 
+-- Fecha limite de bugs (las tareas ya la tenian). Permite consultar bugs vencidos.
+ALTER TABLE bugs ADD COLUMN IF NOT EXISTS due_date TIMESTAMP;
+
 -- ---------------------------------------------------------------------
 -- Historial de cambios de tareas/bugs (antes faltaba en los scripts)
 -- ---------------------------------------------------------------------
@@ -256,6 +279,9 @@ CREATE TABLE IF NOT EXISTS work_item_history (
 CREATE INDEX IF NOT EXISTS idx_history_entity ON work_item_history(entity_type, entity_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_history_project_created ON work_item_history(project_id, created_at);
 
+-- Trazabilidad: token de API con el que se hizo el cambio (NULL = desde la web).
+ALTER TABLE work_item_history ADD COLUMN IF NOT EXISTS api_token_id VARCHAR(36);
+
 -- ---------------------------------------------------------------------
 -- Adjuntos (metadatos; el archivo vive en Supabase Storage)
 -- ---------------------------------------------------------------------
@@ -277,3 +303,203 @@ CREATE TABLE IF NOT EXISTS work_item_attachments (
 
 CREATE INDEX IF NOT EXISTS idx_attach_entity ON work_item_attachments(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_attach_project ON work_item_attachments(project_id);
+
+-- ---------------------------------------------------------------------
+-- Comentarios de tareas/bugs
+-- api_token_id indica que el comentario lo hizo un agente o integracion.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS work_item_comments (
+  id VARCHAR(36) PRIMARY KEY,
+  entity_type VARCHAR(20) NOT NULL,
+  entity_id VARCHAR(36) NOT NULL,
+  project_id VARCHAR(36) NOT NULL,
+  author_id VARCHAR(36) NOT NULL,
+  api_token_id VARCHAR(36),
+  body TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_comments_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  CONSTRAINT fk_comments_author FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_comments_api_token FOREIGN KEY (api_token_id) REFERENCES api_tokens(id) ON DELETE SET NULL,
+  CONSTRAINT chk_comments_entity_type CHECK (entity_type IN ('TASK', 'BUG'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_comments_entity ON work_item_comments(entity_type, entity_id, created_at);
+
+-- ---------------------------------------------------------------------
+-- Código corto del proyecto para las claves de tickets (RYA-001).
+-- Primeras 3 letras del nombre, en mayúscula y sin tildes. Es único en
+-- toda la app; si ya está tomado se prueban otras combinaciones del
+-- nombre (RYS, RAS...) y luego números (RY2, R10...). No cambia al
+-- renombrar el proyecto.
+-- ---------------------------------------------------------------------
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS code VARCHAR(10);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_projects_code ON projects(code);
+
+CREATE OR REPLACE FUNCTION qualio_project_code(p_name TEXT, p_project_id VARCHAR)
+RETURNS VARCHAR AS $$
+DECLARE
+  s TEXT;
+  n INT;
+  candidate TEXT;
+  j INT;
+  k INT;
+  d INT;
+BEGIN
+  s := upper(translate(coalesce(p_name, ''),
+    'áàäâãéèëêíìïîóòöôõúùüûñçÁÀÄÂÃÉÈËÊÍÌÏÎÓÒÖÔÕÚÙÜÛÑÇ',
+    'aaaaaeeeeiiiiooooouuuuncAAAAAEEEEIIIIOOOOOUUUUNC'));
+  s := regexp_replace(s, '[^A-Z0-9]', '', 'g');
+  -- rpad también recorta, así que solo se usa para nombres de menos de 3 caracteres.
+  IF length(s) < 3 THEN
+    s := rpad(s, 3, 'X');
+  END IF;
+  n := length(s);
+
+  -- 1) Primeras 3 letras: Ryasa -> RYA
+  candidate := substr(s, 1, 3);
+  IF NOT EXISTS (SELECT 1 FROM projects WHERE code = candidate AND id <> p_project_id) THEN
+    RETURN candidate;
+  END IF;
+
+  -- 2) Primera y segunda letra + otra letra del nombre: RYS
+  FOR k IN 4..n LOOP
+    candidate := substr(s, 1, 2) || substr(s, k, 1);
+    IF NOT EXISTS (SELECT 1 FROM projects WHERE code = candidate AND id <> p_project_id) THEN
+      RETURN candidate;
+    END IF;
+  END LOOP;
+
+  -- 3) Primera letra + dos letras posteriores del nombre: RAS
+  FOR j IN 3..n LOOP
+    FOR k IN (j + 1)..n LOOP
+      candidate := substr(s, 1, 1) || substr(s, j, 1) || substr(s, k, 1);
+      IF NOT EXISTS (SELECT 1 FROM projects WHERE code = candidate AND id <> p_project_id) THEN
+        RETURN candidate;
+      END IF;
+    END LOOP;
+  END LOOP;
+
+  -- 4) Con números: RY2..RY9 y luego R10..R99
+  FOR d IN 2..9 LOOP
+    candidate := substr(s, 1, 2) || d::TEXT;
+    IF NOT EXISTS (SELECT 1 FROM projects WHERE code = candidate AND id <> p_project_id) THEN
+      RETURN candidate;
+    END IF;
+  END LOOP;
+  FOR d IN 10..99 LOOP
+    candidate := substr(s, 1, 1) || d::TEXT;
+    IF NOT EXISTS (SELECT 1 FROM projects WHERE code = candidate AND id <> p_project_id) THEN
+      RETURN candidate;
+    END IF;
+  END LOOP;
+
+  -- Último recurso (prácticamente inalcanzable): parte del id.
+  RETURN upper(substr(replace(p_project_id, '-', ''), 1, 6));
+END;
+$$ LANGUAGE plpgsql;
+
+-- Asigna código a los proyectos que aún no lo tienen, en orden de creación
+-- (el proyecto más antiguo se queda con la abreviatura "natural").
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN SELECT id, name FROM projects WHERE code IS NULL ORDER BY created_at, id LOOP
+    UPDATE projects SET code = qualio_project_code(r.name, r.id) WHERE id = r.id;
+  END LOOP;
+END $$;
+
+-- Renombra las claves existentes al formato CODIGO-NNN, conservando el número.
+UPDATE tasks t
+SET item_key = p.code || '-' || substring(t.item_key FROM '([0-9]+)$')
+FROM projects p
+WHERE p.id = t.project_id
+  AND t.item_key ~ '[0-9]+$'
+  AND t.item_key NOT LIKE p.code || '-%';
+
+UPDATE bugs b
+SET item_key = p.code || '-' || substring(b.item_key FROM '([0-9]+)$')
+FROM projects p
+WHERE p.id = b.project_id
+  AND b.item_key ~ '[0-9]+$'
+  AND b.item_key NOT LIKE p.code || '-%';
+
+-- ---------------------------------------------------------------------
+-- Planning: Etapa -> Macroactividad -> Ticket (opcional por proyecto).
+-- El avance de cada etapa sale de los tickets vinculados a sus
+-- macroactividades. Borrar una etapa o macroactividad NO borra tickets:
+-- quedan "sin planificar" (stage_group_id = NULL).
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS project_stages (
+  id VARCHAR(36) PRIMARY KEY,
+  project_id VARCHAR(36) NOT NULL,
+  position INT NOT NULL DEFAULT 0,
+  code VARCHAR(20),
+  name VARCHAR(120) NOT NULL,
+  owner_name VARCHAR(120),
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  deliverables TEXT,
+  exit_criteria TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_stages_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  CONSTRAINT chk_stages_dates CHECK (end_date >= start_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_stages_project ON project_stages(project_id, position);
+
+-- Macroactividades de cada etapa
+CREATE TABLE IF NOT EXISTS project_stage_groups (
+  id VARCHAR(36) PRIMARY KEY,
+  stage_id VARCHAR(36) NOT NULL,
+  project_id VARCHAR(36) NOT NULL,
+  position INT NOT NULL DEFAULT 0,
+  name VARCHAR(120) NOT NULL,
+  owner_name VARCHAR(120),
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_stage_groups_stage FOREIGN KEY (stage_id) REFERENCES project_stages(id) ON DELETE CASCADE,
+  CONSTRAINT fk_stage_groups_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  CONSTRAINT chk_stage_groups_dates CHECK (end_date >= start_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_stage_groups_stage ON project_stage_groups(stage_id, position);
+
+-- Tickets: fecha de inicio, macroactividad, cuándo entró (línea base) y subtarea de...
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS start_date TIMESTAMP;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS stage_group_id VARCHAR(36);
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS planned_at TIMESTAMP;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS parent_entity_type VARCHAR(10);
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS parent_entity_id VARCHAR(36);
+
+ALTER TABLE bugs ADD COLUMN IF NOT EXISTS start_date TIMESTAMP;
+ALTER TABLE bugs ADD COLUMN IF NOT EXISTS stage_group_id VARCHAR(36);
+ALTER TABLE bugs ADD COLUMN IF NOT EXISTS planned_at TIMESTAMP;
+ALTER TABLE bugs ADD COLUMN IF NOT EXISTS parent_entity_type VARCHAR(10);
+ALTER TABLE bugs ADD COLUMN IF NOT EXISTS parent_entity_id VARCHAR(36);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_tasks_stage_group') THEN
+    ALTER TABLE tasks ADD CONSTRAINT fk_tasks_stage_group
+      FOREIGN KEY (stage_group_id) REFERENCES project_stage_groups(id) ON DELETE SET NULL;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_bugs_stage_group') THEN
+    ALTER TABLE bugs ADD CONSTRAINT fk_bugs_stage_group
+      FOREIGN KEY (stage_group_id) REFERENCES project_stage_groups(id) ON DELETE SET NULL;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_tasks_parent_type') THEN
+    ALTER TABLE tasks ADD CONSTRAINT chk_tasks_parent_type CHECK (parent_entity_type IN ('TASK', 'BUG'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_bugs_parent_type') THEN
+    ALTER TABLE bugs ADD CONSTRAINT chk_bugs_parent_type CHECK (parent_entity_type IN ('TASK', 'BUG'));
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_tasks_stage_group ON tasks(stage_group_id);
+CREATE INDEX IF NOT EXISTS idx_bugs_stage_group ON bugs(stage_group_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_parent ON tasks(parent_entity_type, parent_entity_id);
+CREATE INDEX IF NOT EXISTS idx_bugs_parent ON bugs(parent_entity_type, parent_entity_id);

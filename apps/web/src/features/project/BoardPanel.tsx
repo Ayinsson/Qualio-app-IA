@@ -222,6 +222,7 @@ export function BoardPanel({ hasSprint, cards, memberById, currentUserId, onMove
                           onOpen(card);
                         }}
                       >
+                        {card.parentKey ? <span className="qx-parent">↳ {card.parentKey}</span> : null}
                         {card.title}
                       </button>
                       <div className="qb-card-foot">

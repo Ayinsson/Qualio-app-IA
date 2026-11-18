@@ -1,5 +1,6 @@
-import { IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsDateString, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
+import { WORK_ITEM_TYPES, type WorkItemType } from '../../planning/work-item-types';
 import { BACKLOG_SECTIONS, type BacklogSection } from '../../tasks/dto/create-task.dto';
 
 export const BUG_PRIORITIES = ['HIGH', 'MEDIUM', 'LOW'] as const;
@@ -39,4 +40,27 @@ export class CreateBugDto {
   @IsString()
   @MaxLength(4000)
   actualResult?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dueDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  /** Macroactividad del Planning. No se combina con parentId: la subtarea hereda la del padre. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(36)
+  stageGroupId?: string;
+
+  @IsOptional()
+  @IsIn(WORK_ITEM_TYPES)
+  parentType?: WorkItemType;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(36)
+  parentId?: string;
 }

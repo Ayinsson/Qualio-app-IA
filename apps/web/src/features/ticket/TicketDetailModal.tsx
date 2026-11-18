@@ -2,11 +2,16 @@ import { useMemo, useRef, useState } from 'react';
 
 import type { WorkItemAttachment } from '../../lib/attachments';
 import type { Bug } from '../../lib/bugs';
+import type { WorkItemComment } from '../../lib/comments';
+import type { PlanningView } from '../../lib/planning';
 import type { ProjectMember } from '../../lib/project-members';
 import type { Task } from '../../lib/tasks';
 import { Avatar, Button, Field, Input, Modal, Select, StatusBadge, Textarea } from '../../ui';
 import { EnvironmentPicker, PriorityPicker } from './fields';
 import { buildActivity, formatEventTime } from './historyLogic';
+import { PlanningNotice, StageSelect, SubtasksSection } from './planningFields';
+import type { TicketRef } from './planningFields';
+import { openSubtasksMessage } from './subtaskLogic';
 import type { HistoryEntry } from './historyLogic';
 import { ATTACHMENTS_ACCEPT } from './types';
 import './ticket.css';
@@ -25,6 +30,9 @@ export type TicketSavePayload =
       section: Section;
       assignedTo: string | null;
       dueDate: string | null;
+      startDate: string | null;
+      /** undefined en subtareas: heredan la etapa del padre. */
+      stageGroupId?: string | null;
       changeNote: string;
     }
   | {
@@ -38,6 +46,9 @@ export type TicketSavePayload =
       environment: string;
       expectedResult: string;
       actualResult: string;
+      dueDate: string | null;
+      startDate: string | null;
+      stageGroupId?: string | null;
       changeNote: string;
     };
 
@@ -50,6 +61,19 @@ type TicketDetailModalProps = {
   loadingAttachments: boolean;
   history: HistoryEntry[];
   loadingHistory: boolean;
+  /** Comentarios del ticket. Sin onAddComment la sección no se muestra. */
+  comments?: WorkItemComment[];
+  loadingComments?: boolean;
+  /** Rechaza la promesa si falla; quien llama muestra el aviso. */
+  onAddComment?: (body: string) => Promise<void>;
+  /** Planning del proyecto: opciones de etapa y aviso de impacto. */
+  planning?: PlanningView;
+  /** Si es subtarea: su ticket padre. */
+  parent?: TicketRef | null;
+  subtasks?: TicketRef[];
+  onOpenTicket?: (ticket: { type: 'task' | 'bug'; id: string }) => void;
+  /** Rechaza si falla; quien llama muestra el aviso. Sin esta prop no se ofrece crear subtareas. */
+  onAddSubtask?: (input: { type: 'task' | 'bug'; title: string }) => Promise<void>;
   saving: boolean;
   onSave: (payload: TicketSavePayload) => Promise<void> | void;
   onAddAttachments: (files: File[]) => Promise<void>;
@@ -89,6 +113,14 @@ export function TicketDetailModal({
   loadingAttachments,
   history,
   loadingHistory,
+  comments = [],
+  loadingComments = false,
+  onAddComment,
+  planning,
+  parent = null,
+  subtasks = [],
+  onOpenTicket,
+  onAddSubtask,
   saving,
   onSave,
   onAddAttachments,
@@ -102,7 +134,9 @@ export function TicketDetailModal({
     priority: data.priority as Priority,
     status: data.status as string,
     assignedTo: isTask ? (item.data.assignedTo ?? '') : '',
-    dueDate: isTask ? dateOnly(item.data.dueDate) : '',
+    dueDate: dateOnly(item.data.dueDate),
+    startDate: dateOnly(item.data.startDate ?? null),
+    stageGroupId: item.data.stageGroupId ?? '',
     environment: !isTask ? (item.data.environment ?? '') : '',
     expectedResult: !isTask ? (item.data.expectedResult ?? '') : '',
     actualResult: !isTask ? (item.data.actualResult ?? '') : '',
@@ -112,6 +146,8 @@ export function TicketDetailModal({
   const [changeNote, setChangeNote] = useState('');
   const [confirmingClose, setConfirmingClose] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [commentDraft, setCommentDraft] = useState('');
+  const [sendingComment, setSendingComment] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const set = <K extends keyof typeof original>(key: K, value: (typeof original)[K]) => {
@@ -123,6 +159,8 @@ export function TicketDetailModal({
     (Object.keys(original) as Array<keyof typeof original>).some((key) => String(form[key]).trim() !== String(original[key]).trim()) ||
     changeNote.trim().length > 0;
   const reopening = FINISHED.has(original.status) && !FINISHED.has(form.status);
+  const isSubtask = Boolean(parent);
+  const closingBlocked = !FINISHED.has(original.status) && FINISHED.has(form.status) ? openSubtasksMessage(subtasks) : null;
   const memberName = (userId: string) => {
     const member = members.find((candidate) => candidate.userId === userId);
     return member ? member.name?.trim() || member.email : null;
@@ -159,6 +197,8 @@ export function TicketDetailModal({
       priority: form.priority,
       section: data.section as Section,
       changeNote: changeNote.trim(),
+      startDate: form.startDate ? new Date(form.startDate).toISOString() : null,
+      ...(isSubtask ? {} : { stageGroupId: form.stageGroupId || null }),
     };
     if (isTask) {
       void persist({
@@ -177,7 +217,24 @@ export function TicketDetailModal({
       environment: form.environment.trim(),
       expectedResult: form.expectedResult.trim(),
       actualResult: form.actualResult.trim(),
+      dueDate: form.dueDate ? new Date(form.dueDate).toISOString() : null,
     });
+  };
+
+  const sendComment = async () => {
+    const body = commentDraft.trim();
+    if (!body || !onAddComment) {
+      return;
+    }
+    setSendingComment(true);
+    try {
+      await onAddComment(body);
+      setCommentDraft('');
+    } catch {
+      // El aviso lo muestra quien llama; el borrador se conserva.
+    } finally {
+      setSendingComment(false);
+    }
   };
 
   const addFiles = async (list: FileList | null) => {
@@ -287,6 +344,14 @@ export function TicketDetailModal({
             </div>
           ) : null}
 
+          {!isSubtask ? (
+            <SubtasksSection
+              subtasks={subtasks}
+              onOpen={onOpenTicket ? (ticket) => onOpenTicket({ type: ticket.type, id: ticket.id }) : undefined}
+              onAdd={onAddSubtask}
+            />
+          ) : null}
+
           <section className="qt-block" aria-label={isTask ? 'Adjuntos' : 'Evidencias'}>
             <h3 className="q-field__label">{isTask ? 'Adjuntos' : 'Evidencias'}</h3>
             <div className="qt-attachments">
@@ -326,6 +391,57 @@ export function TicketDetailModal({
             </div>
           </section>
 
+          {onAddComment ? (
+            <section className="qt-block" aria-label="Comentarios">
+              <h3 className="q-field__label">
+                Comentarios{comments.length > 0 ? <span className="qt-count" aria-hidden="true">{comments.length}</span> : null}
+              </h3>
+              {loadingComments ? <p className="qt-muted">Cargando comentarios…</p> : null}
+              {comments.length > 0 ? (
+                <ol className="qt-comments">
+                  {comments.map((comment) => {
+                    const author = comment.authorName?.trim() || comment.authorEmail;
+                    return (
+                      <li key={comment.id}>
+                        <Avatar name={author} src={comment.authorAvatarUrl} size={26} />
+                        <div>
+                          <p className="qt-comment-head">
+                            <strong>{author}</strong>
+                            {comment.apiTokenName ? <span className="qt-via">vía {comment.apiTokenName}</span> : null}
+                            <time dateTime={comment.createdAt}>{formatEventTime(comment.createdAt)}</time>
+                          </p>
+                          <p className="qt-comment-body">{comment.body}</p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              ) : null}
+              <div className="qt-comment-form">
+                <label className="sr-only" htmlFor="ticket-comment">
+                  Escribe un comentario
+                </label>
+                <Textarea
+                  id="ticket-comment"
+                  value={commentDraft}
+                  onChange={(event) => setCommentDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                      event.preventDefault();
+                      void sendComment();
+                    }
+                  }}
+                  rows={2}
+                  maxLength={5000}
+                  placeholder="Escribe un comentario…"
+                />
+                <Button size="sm" variant="primary" onClick={() => void sendComment()} loading={sendingComment} disabled={!commentDraft.trim()}>
+                  Comentar
+                </Button>
+              </div>
+            </section>
+          ) : null}
+
           <section className="qt-block" aria-label="Actividad">
             <h3 className="q-field__label">Actividad</h3>
             {loadingHistory ? <p className="qt-muted">Cargando actividad…</p> : null}
@@ -341,6 +457,7 @@ export function TicketDetailModal({
                       </p>
                     ))}
                     <time dateTime={event.at}>{formatEventTime(event.at)}</time>
+                    {event.via ? <span className="qt-via">vía {event.via}</span> : null}
                     {event.note ? <q>{event.note}</q> : null}
                   </div>
                 </li>
@@ -369,6 +486,11 @@ export function TicketDetailModal({
               ))}
             </Select>
           </Field>
+          {closingBlocked ? (
+            <p className="qt-notice qt-notice--warn" role="alert">
+              {closingBlocked}
+            </p>
+          ) : null}
 
           <PriorityPicker value={form.priority} onChange={(value) => set('priority', value)} />
 
@@ -389,7 +511,36 @@ export function TicketDetailModal({
               </Field>
             </>
           ) : (
-            <EnvironmentPicker value={form.environment} onChange={(value) => set('environment', value)} />
+            <>
+              <EnvironmentPicker value={form.environment} onChange={(value) => set('environment', value)} />
+              <Field id="ticket-detail-due" label="Fecha límite">
+                <Input id="ticket-detail-due" type="date" value={form.dueDate} onChange={(event) => set('dueDate', event.target.value)} />
+              </Field>
+            </>
+          )}
+
+          <Field id="ticket-detail-start" label="Fecha de inicio">
+            <Input id="ticket-detail-start" type="date" value={form.startDate} onChange={(event) => set('startDate', event.target.value)} />
+          </Field>
+
+          {isSubtask && parent ? (
+            <div className="q-field">
+              <span className="q-field__label">Etapa</span>
+              <p className="qt-muted">
+                Subtarea de{' '}
+                <button type="button" className="qt-link" onClick={() => onOpenTicket?.({ type: parent.type, id: parent.id })}>
+                  {parent.itemKey ?? parent.title}
+                </button>
+                ; hereda su etapa.
+              </p>
+            </div>
+          ) : (
+            <>
+              <StageSelect id="ticket-detail-stage" plan={planning} value={form.stageGroupId} onChange={(value) => set('stageGroupId', value)} />
+              {form.stageGroupId !== original.stageGroupId ? (
+                <PlanningNotice plan={planning} groupId={form.stageGroupId} currentGroupId={original.stageGroupId || null} />
+              ) : null}
+            </>
           )}
 
           <dl className="qt-facts">

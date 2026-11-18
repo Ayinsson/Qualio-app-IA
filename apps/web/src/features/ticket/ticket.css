@@ -334,6 +334,82 @@
   font-style: italic;
 }
 
+/* Marca de cambios o comentarios hechos con un token de API (agentes, integraciones). */
+.qt-via {
+  display: inline-block;
+  margin-top: 2px;
+  padding: 1px 7px;
+  border-radius: var(--q-radius-pill);
+  background: var(--q-run-bg);
+  color: var(--q-run);
+  font-size: var(--q-text-xs);
+  font-weight: 500;
+}
+
+.qt-count {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: var(--q-radius-pill);
+  background: var(--q-surface-2);
+  color: var(--q-ink-soft);
+  font-size: var(--q-text-xs);
+}
+
+.qt-comments {
+  display: grid;
+  gap: var(--q-space-3);
+  margin: 0 0 var(--q-space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.qt-comments li {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: var(--q-space-2);
+}
+
+.qt-comment-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: var(--q-text-sm);
+}
+
+.qt-comment-head strong {
+  color: var(--q-ink);
+  font-weight: 600;
+}
+
+.qt-comment-head .qt-via {
+  margin-top: 0;
+}
+
+.qt-comment-head time {
+  color: var(--q-ink-muted);
+  font-size: var(--q-text-xs);
+}
+
+.qt-comment-body {
+  margin: 4px 0 0;
+  padding: var(--q-space-2) var(--q-space-3);
+  border-radius: var(--q-radius-md);
+  background: var(--q-surface-2);
+  color: var(--q-ink);
+  font-size: var(--q-text-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.qt-comment-form {
+  display: grid;
+  justify-items: end;
+  gap: var(--q-space-2);
+}
+
 .qt-side {
   display: grid;
   align-content: start;
@@ -402,5 +478,70 @@
 
   .qt-note {
     flex-basis: 100%;
+  }
+}
+
+/* Planning en el ticket: avisos de impacto y subtareas */
+.qt-notice {
+  margin: 0;
+  padding: var(--q-space-2) var(--q-space-3);
+  border-radius: var(--q-radius-md);
+  background: var(--q-run-bg);
+  color: var(--q-run);
+  font-size: var(--q-text-sm);
+  line-height: 1.45;
+}
+
+.qt-notice--warn {
+  background: var(--q-blocked-bg);
+  color: var(--q-blocked);
+}
+
+.qt-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--q-link);
+  font-family: var(--q-font);
+  font-size: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.qt-link:hover {
+  text-decoration: underline;
+}
+
+.qt-subtasks {
+  display: grid;
+  gap: 2px;
+  margin: var(--q-space-2) 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qt-subtasks li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--q-space-2);
+  font-size: var(--q-text-sm);
+}
+
+.qt-subtasks li.is-done .qt-link {
+  color: var(--q-ink-muted);
+  text-decoration: line-through;
+}
+
+.qt-subtask-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px auto;
+  gap: var(--q-space-2);
+  margin-top: var(--q-space-2);
+}
+
+@media (max-width: 520px) {
+  .qt-subtask-form {
+    grid-template-columns: 1fr;
   }
 }
