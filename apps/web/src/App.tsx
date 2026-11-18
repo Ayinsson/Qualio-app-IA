@@ -19,6 +19,7 @@ import { changePassword, login, register, removeAvatar, resolveSession, updateAv
 import { getProject, listProjects } from './lib/projects';
 import { listAttachments, registerAttachment } from './lib/attachments';
 import { createBug, listBugHistory, listBugs, moveBug, reopenBug, updateBug, type Bug } from './lib/bugs';
+import { createComment, listComments } from './lib/comments';
 import {
   acceptInvitation,
   cancelProjectInvitation,
@@ -39,6 +40,7 @@ import { ReportsPanel } from './features/project/reports/ReportsPanel';
 import { InvitationsPage } from './features/collab/InvitationsPage';
 import { MembersModal } from './features/collab/MembersModal';
 import { SharedProjectsView } from './features/collab/SharedProjectsView';
+import { ApiTokensDialog } from './features/profile/ApiTokensDialog';
 import { ProfileModal } from './features/profile/ProfileModal';
 import { CreateTicketModal } from './features/ticket/CreateTicketModal';
 import { TicketDetailModal } from './features/ticket/TicketDetailModal';
@@ -668,6 +670,7 @@ function AppShell({
   const [notificationsLimit, setNotificationsLimit] = useState(20);
   const [notificationFilter, setNotificationFilter] = useState<NotificationFilter>('ALL');
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [apiTokensOpen, setApiTokensOpen] = useState(false);
   const [browserAlerts, setBrowserAlerts] = useState<BrowserAlertsState>(() =>
     typeof window !== 'undefined' && 'Notification' in window ? window.Notification.permission : 'unsupported',
   );
@@ -1022,9 +1025,15 @@ function AppShell({
           userEmail={userEmail}
           avatarUrl={storedUser?.avatarUrl ?? null}
           onUserUpdated={setStoredUser}
+          onManageApiTokens={() => {
+            setProfileModalOpen(false);
+            setApiTokensOpen(true);
+          }}
           onClose={() => setProfileModalOpen(false)}
         />
       ) : null}
+
+      {apiTokensOpen ? <ApiTokensDialog accessToken={accessToken} onClose={() => setApiTokensOpen(false)} /> : null}
     </div>
   );
 }
@@ -1036,6 +1045,7 @@ function ProfileDialog({
   userEmail,
   avatarUrl,
   onUserUpdated,
+  onManageApiTokens,
   onClose,
 }: {
   accessToken: string | null;
@@ -1043,6 +1053,7 @@ function ProfileDialog({
   userEmail: string;
   avatarUrl: string | null;
   onUserUpdated: (user: StoredUser) => void;
+  onManageApiTokens: () => void;
   onClose: () => void;
 }) {
   const toast = useToast();
@@ -1080,6 +1091,7 @@ function ProfileDialog({
   return (
     <ProfileModal
       user={{ name: userName, email: userEmail, avatarUrl }}
+      onManageApiTokens={onManageApiTokens}
       onClose={onClose}
       onSaveName={(name) =>
         run(async () => {
@@ -1304,6 +1316,19 @@ function ProjectDetailView() {
     retry: false,
   });
 
+  const commentsQuery = useQuery({
+    queryKey: ['comments', selectedWorkItem?.type, selectedWorkItem?.id],
+    queryFn: () => {
+      if (!accessToken || !selectedWorkItem) {
+        throw new Error('No hay elemento seleccionado.');
+      }
+
+      return listComments(accessToken, selectedWorkItem.type === 'task' ? 'TASK' : 'BUG', selectedWorkItem.id);
+    },
+    enabled: Boolean(accessToken && selectedWorkItem),
+    retry: false,
+  });
+
   const addMemberMutation = useMutation({
     mutationFn: async (email: string) => {
       if (!accessToken || !projectId) {
@@ -1402,6 +1427,7 @@ function ProjectDetailView() {
         environment: values.environment || undefined,
         expectedResult: values.expectedResult || undefined,
         actualResult: values.actualResult || undefined,
+        dueDate: values.dueDate ? new Date(values.dueDate).toISOString() : undefined,
       });
 
       await uploadAttachments('BUG', created.id, files);
@@ -1722,6 +1748,7 @@ function ProjectDetailView() {
       environment: string;
       expectedResult: string;
       actualResult: string;
+      dueDate: string | null;
       changeNote: string;
     }) => {
       if (!accessToken) {
@@ -1737,6 +1764,7 @@ function ProjectDetailView() {
         environment: payload.environment,
         expectedResult: payload.expectedResult,
         actualResult: payload.actualResult,
+        dueDate: payload.dueDate,
         changeNote: payload.changeNote,
       });
     },
@@ -1988,7 +2016,7 @@ function ProjectDetailView() {
       priority: bug.priority,
       column: boardColumnOf(bug.status),
       assigneeUserId: null,
-      dueDate: null,
+      dueDate: bug.dueDate,
       environment: bug.environment,
       rolloverFrom: bug.rolloverFromSprintName,
     })),
@@ -2307,6 +2335,20 @@ function ProjectDetailView() {
           loadingAttachments={attachmentsQuery.isLoading}
           history={historyQuery.data ?? []}
           loadingHistory={historyQuery.isLoading}
+          comments={commentsQuery.data ?? []}
+          loadingComments={commentsQuery.isLoading}
+          onAddComment={async (body) => {
+            if (!accessToken || !selectedWorkItem) {
+              return;
+            }
+            try {
+              await createComment(accessToken, selectedWorkItem.type === 'task' ? 'TASK' : 'BUG', selectedWorkItem.id, body);
+              await queryClient.invalidateQueries({ queryKey: ['comments', selectedWorkItem.type, selectedWorkItem.id] });
+            } catch (error) {
+              setToast({ message: getApiErrorMessage(error), type: 'error' });
+              throw error;
+            }
+          }}
           saving={updateTaskMutation.isPending || updateBugMutation.isPending}
           onSave={(payload) => {
             if (payload.type === 'task') {
@@ -2373,7 +2415,7 @@ function fromBugToBacklogItem(bug: Bug): BacklogItem {
     status: fromBugStatus(bug.status),
     assignee: 'Sin asignar',
     assigneeUserId: null,
-    dueDate: null,
+    dueDate: bug.dueDate,
     section: bug.section === 'NEXT_SPRINT' ? 'nextSprint' : 'general',
     position: bug.position,
   };

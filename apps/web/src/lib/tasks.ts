@@ -68,6 +68,8 @@ export type WorkItemHistory = {
   oldValue: string | null;
   newValue: string | null;
   changeNote: string | null;
+  /** Nombre del token de API con el que se hizo el cambio; null si fue desde la web. */
+  apiTokenName?: string | null;
   createdAt: string;
 };
 

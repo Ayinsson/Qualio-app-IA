@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsDateString, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 import { BACKLOG_SECTIONS, type BacklogSection } from '../../tasks/dto/create-task.dto';
 
@@ -39,4 +39,8 @@ export class CreateBugDto {
   @IsString()
   @MaxLength(4000)
   actualResult?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dueDate?: string;
 }

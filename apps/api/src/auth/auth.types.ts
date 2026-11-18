@@ -17,6 +17,11 @@ export type RefreshTokenRecord = {
 export type AuthPayload = {
   sub: string;
   email: string;
+  /** Ausente o 'jwt' en sesiones web; 'api_token' cuando entra con un token de API. */
+  authType?: 'jwt' | 'api_token';
+  /** Solo con token de API: id del token y permisos concedidos. */
+  tokenId?: string;
+  scopes?: string[];
 };
 
 export type AuthResponse = {

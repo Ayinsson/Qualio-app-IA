@@ -44,6 +44,26 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id)
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token_hash ON refresh_tokens(token_hash);
 
+-- Tokens de API personales (para integraciones y agentes de IA).
+-- Solo se guarda el hash SHA-256 del token; el valor completo se muestra
+-- una unica vez al crearlo. token_prefix permite reconocerlo en la lista.
+CREATE TABLE IF NOT EXISTS api_tokens (
+  id VARCHAR(36) PRIMARY KEY,
+  user_id VARCHAR(36) NOT NULL,
+  name VARCHAR(60) NOT NULL,
+  token_prefix VARCHAR(16) NOT NULL,
+  token_hash CHAR(64) NOT NULL,
+  scopes TEXT[] NOT NULL,
+  expires_at TIMESTAMP,
+  last_used_at TIMESTAMP,
+  revoked_at TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_api_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT uq_api_tokens_token_hash UNIQUE (token_hash)
+);
+
+CREATE INDEX IF NOT EXISTS idx_api_tokens_user_id ON api_tokens(user_id);
+
 -- ---------------------------------------------------------------------
 -- Proyectos, miembros, secuencias e invitaciones
 -- ---------------------------------------------------------------------
@@ -234,6 +254,9 @@ CREATE INDEX IF NOT EXISTS idx_bugs_project_section_position ON bugs(project_id,
 CREATE INDEX IF NOT EXISTS idx_bugs_sprint ON bugs(sprint_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_bugs_item_key ON bugs(item_key);
 
+-- Fecha limite de bugs (las tareas ya la tenian). Permite consultar bugs vencidos.
+ALTER TABLE bugs ADD COLUMN IF NOT EXISTS due_date TIMESTAMP;
+
 -- ---------------------------------------------------------------------
 -- Historial de cambios de tareas/bugs (antes faltaba en los scripts)
 -- ---------------------------------------------------------------------
@@ -256,6 +279,9 @@ CREATE TABLE IF NOT EXISTS work_item_history (
 CREATE INDEX IF NOT EXISTS idx_history_entity ON work_item_history(entity_type, entity_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_history_project_created ON work_item_history(project_id, created_at);
 
+-- Trazabilidad: token de API con el que se hizo el cambio (NULL = desde la web).
+ALTER TABLE work_item_history ADD COLUMN IF NOT EXISTS api_token_id VARCHAR(36);
+
 -- ---------------------------------------------------------------------
 -- Adjuntos (metadatos; el archivo vive en Supabase Storage)
 -- ---------------------------------------------------------------------
@@ -277,3 +303,24 @@ CREATE TABLE IF NOT EXISTS work_item_attachments (
 
 CREATE INDEX IF NOT EXISTS idx_attach_entity ON work_item_attachments(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_attach_project ON work_item_attachments(project_id);
+
+-- ---------------------------------------------------------------------
+-- Comentarios de tareas/bugs
+-- api_token_id indica que el comentario lo hizo un agente o integracion.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS work_item_comments (
+  id VARCHAR(36) PRIMARY KEY,
+  entity_type VARCHAR(20) NOT NULL,
+  entity_id VARCHAR(36) NOT NULL,
+  project_id VARCHAR(36) NOT NULL,
+  author_id VARCHAR(36) NOT NULL,
+  api_token_id VARCHAR(36),
+  body TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_comments_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  CONSTRAINT fk_comments_author FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_comments_api_token FOREIGN KEY (api_token_id) REFERENCES api_tokens(id) ON DELETE SET NULL,
+  CONSTRAINT chk_comments_entity_type CHECK (entity_type IN ('TASK', 'BUG'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_comments_entity ON work_item_comments(entity_type, entity_id, created_at);

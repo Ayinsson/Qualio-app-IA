@@ -17,6 +17,7 @@ export type Bug = {
   environment: string | null;
   expectedResult: string | null;
   actualResult: string | null;
+  dueDate: string | null;
   sprintId: string | null;
   sprintName: string | null;
   sprintSequence: number | null;
@@ -39,6 +40,7 @@ export type CreateBugPayload = {
   environment?: string;
   expectedResult?: string;
   actualResult?: string;
+  dueDate?: string;
 };
 
 export type MoveBugPayload = {
@@ -55,6 +57,7 @@ export type UpdateBugPayload = {
   environment?: string;
   expectedResult?: string;
   actualResult?: string;
+  dueDate?: string | null;
   changeNote?: string;
 };
 
@@ -70,6 +73,8 @@ export type WorkItemHistory = {
   oldValue: string | null;
   newValue: string | null;
   changeNote: string | null;
+  /** Nombre del token de API con el que se hizo el cambio; null si fue desde la web. */
+  apiTokenName?: string | null;
   createdAt: string;
 };
 

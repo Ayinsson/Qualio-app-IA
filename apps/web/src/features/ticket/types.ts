@@ -24,6 +24,7 @@ export type NewBugValues = {
   environment: string;
   expectedResult: string;
   actualResult: string;
+  dueDate: string;
 };
 
 export const ATTACHMENTS_ACCEPT = [

@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 
+import { currentApiTokenId } from '../../common/request-context';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { type BacklogSection } from '../tasks/dto/create-task.dto';
@@ -21,6 +22,7 @@ export type BugEntity = {
   environment: string | null;
   expectedResult: string | null;
   actualResult: string | null;
+  dueDate: Date | null;
   sprintId: string | null;
   sprintName: string | null;
   sprintSequence: number | null;
@@ -47,6 +49,9 @@ export type BugHistoryEntry = {
   oldValue: string | null;
   newValue: string | null;
   changeNote: string | null;
+  /** Token de API con el que se hizo el cambio; null si fue desde la web. */
+  apiTokenId: string | null;
+  apiTokenName: string | null;
   createdAt: Date;
 };
 
@@ -81,6 +86,7 @@ export class BugsService {
         environment,
         expected_result,
         actual_result,
+        due_date,
         sprint_id,
         completed_in_sprint_id,
         rollover_from_sprint_id,
@@ -101,6 +107,7 @@ export class BugsService {
         ${dto.environment?.trim() ?? null},
         ${dto.expectedResult?.trim() ?? null},
         ${dto.actualResult?.trim() ?? null},
+        ${dto.dueDate ? new Date(dto.dueDate) : null},
         ${sprintId},
         NULL,
         NULL,
@@ -121,6 +128,7 @@ export class BugsService {
         environment,
         expected_result AS "expectedResult",
         actual_result AS "actualResult",
+        due_date AS "dueDate",
         sprint_id AS "sprintId",
         NULL::VARCHAR AS "sprintName",
         NULL::INT AS "sprintSequence",
@@ -167,6 +175,7 @@ export class BugsService {
           b.environment,
           b.expected_result AS "expectedResult",
           b.actual_result AS "actualResult",
+        b.due_date AS "dueDate",
           b.sprint_id AS "sprintId",
           s.name AS "sprintName",
           s.sequence AS "sprintSequence",
@@ -203,6 +212,7 @@ export class BugsService {
         b.environment,
         b.expected_result AS "expectedResult",
         b.actual_result AS "actualResult",
+        b.due_date AS "dueDate",
         b.sprint_id AS "sprintId",
         s.name AS "sprintName",
         s.sequence AS "sprintSequence",
@@ -312,6 +322,7 @@ export class BugsService {
     const nextEnvironment = dto.environment === undefined ? current.environment : dto.environment.trim() || null;
     const nextExpected = dto.expectedResult === undefined ? current.expectedResult : dto.expectedResult.trim() || null;
     const nextActual = dto.actualResult === undefined ? current.actualResult : dto.actualResult.trim() || null;
+    const nextDueDate = dto.dueDate === undefined ? current.dueDate : dto.dueDate === null ? null : new Date(dto.dueDate);
     const isFinished = nextStatus === 'RESOLVED' || nextStatus === 'CLOSED';
     const nextSprintId = isReopen
       ? null
@@ -341,6 +352,11 @@ export class BugsService {
       { field: 'environment', oldValue: current.environment ?? null, newValue: nextEnvironment },
       { field: 'expected_result', oldValue: current.expectedResult ?? null, newValue: nextExpected },
       { field: 'actual_result', oldValue: current.actualResult ?? null, newValue: nextActual },
+      {
+        field: 'due_date',
+        oldValue: current.dueDate ? current.dueDate.toISOString() : null,
+        newValue: nextDueDate ? nextDueDate.toISOString() : null,
+      },
     ].filter((entry) => (entry.oldValue ?? null) !== (entry.newValue ?? null));
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -358,6 +374,7 @@ export class BugsService {
           environment = ${nextEnvironment},
           expected_result = ${nextExpected},
           actual_result = ${nextActual},
+          due_date = ${nextDueDate},
           updated_by = ${ownerId},
           last_change_note = ${dto.changeNote?.trim() || null},
           updated_at = NOW()
@@ -375,6 +392,7 @@ export class BugsService {
           environment,
           expected_result AS "expectedResult",
           actual_result AS "actualResult",
+          due_date AS "dueDate",
           sprint_id AS "sprintId",
           NULL::VARCHAR AS "sprintName",
           NULL::INT AS "sprintSequence",
@@ -401,6 +419,7 @@ export class BugsService {
             old_value,
             new_value,
             change_note,
+            api_token_id,
             created_at
           )
           VALUES (
@@ -413,6 +432,7 @@ export class BugsService {
             ${entry.oldValue},
             ${entry.newValue},
             ${dto.changeNote?.trim() || null},
+            ${currentApiTokenId()},
             NOW()
           )
         `;
@@ -450,9 +470,12 @@ export class BugsService {
         h.old_value AS "oldValue",
         h.new_value AS "newValue",
         h.change_note AS "changeNote",
+        h.api_token_id AS "apiTokenId",
+        t.name AS "apiTokenName",
         h.created_at AS "createdAt"
       FROM work_item_history h
       JOIN users u ON u.id = h.changed_by
+      LEFT JOIN api_tokens t ON t.id = h.api_token_id
       WHERE h.entity_type = 'BUG'
         AND h.entity_id = ${id}
       ORDER BY h.created_at DESC
@@ -486,6 +509,7 @@ export class BugsService {
         environment,
         expected_result AS "expectedResult",
         actual_result AS "actualResult",
+        due_date AS "dueDate",
         sprint_id AS "sprintId",
         NULL::VARCHAR AS "sprintName",
         NULL::INT AS "sprintSequence",
@@ -518,6 +542,7 @@ export class BugsService {
         b.environment,
         b.expected_result AS "expectedResult",
         b.actual_result AS "actualResult",
+        b.due_date AS "dueDate",
         b.sprint_id AS "sprintId",
         s.name AS "sprintName",
         s.sequence AS "sprintSequence",

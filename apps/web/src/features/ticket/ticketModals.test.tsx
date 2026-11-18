@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { vi } from 'vitest';
 
 import type { Bug } from '../../lib/bugs';
@@ -155,5 +155,66 @@ describe('TicketDetailModal', () => {
     expect(screen.getByLabelText('Resultado esperado')).toHaveValue('Se confirma el pedido');
     expect(screen.getByLabelText('Resultado obtenido')).toHaveValue('Se queda cargando');
     expect(screen.getByText('reportó el bug')).toBeInTheDocument();
+    expect(screen.getByLabelText('Fecha límite')).toHaveValue('2026-11-18');
+  });
+
+  it('lists comments, marks the ones written by an agent, and sends a new one', async () => {
+    const onAddComment = vi.fn().mockResolvedValue(undefined);
+    renderDetail({
+      onAddComment,
+      comments: [
+        {
+          id: 'c1',
+          entityType: 'TASK',
+          entityId: 't1',
+          projectId: 'p1',
+          body: 'Revisé la matriz: falta Firefox.',
+          authorId: 'u-me',
+          authorName: 'Ayinsson Solano',
+          authorEmail: 'a@b.com',
+          authorAvatarUrl: null,
+          apiTokenId: 'tok-1',
+          apiTokenName: 'Claude del equipo',
+          createdAt: '2026-11-17T09:00:00.000Z',
+        },
+      ],
+    });
+    const comments = screen.getByRole('region', { name: 'Comentarios' });
+    expect(within(comments).getByText('Revisé la matriz: falta Firefox.')).toBeInTheDocument();
+    expect(within(comments).getByText('vía Claude del equipo')).toBeInTheDocument();
+
+    const send = within(comments).getByRole('button', { name: 'Comentar' });
+    expect(send).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Escribe un comentario'), { target: { value: '  Agregado Firefox  ' } });
+    fireEvent.click(send);
+
+    await waitFor(() => expect(onAddComment).toHaveBeenCalledWith('Agregado Firefox'));
+    await waitFor(() => expect(screen.getByLabelText('Escribe un comentario')).toHaveValue(''));
+  });
+
+  it('marks activity done through an API token', () => {
+    renderDetail({
+      history: [
+        {
+          id: 'h2',
+          changedBy: 'u-me',
+          changedByName: 'Ayinsson Solano',
+          changedByEmail: 'a@b.com',
+          fieldName: 'status',
+          oldValue: 'TODO',
+          newValue: 'DONE',
+          changeNote: null,
+          apiTokenName: 'Claude del equipo',
+          createdAt: '2026-11-17T12:00:00.000Z',
+        },
+      ],
+    });
+    const activity = screen.getByRole('region', { name: 'Actividad' });
+    expect(within(activity).getByText('vía Claude del equipo')).toBeInTheDocument();
+  });
+
+  it('hides the comments section when commenting is not wired', () => {
+    renderDetail();
+    expect(screen.queryByRole('region', { name: 'Comentarios' })).not.toBeInTheDocument();
   });
 });

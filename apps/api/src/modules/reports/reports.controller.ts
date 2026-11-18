@@ -2,18 +2,20 @@ import { Controller, Get, Header, Param, Query, Req, Res, UnauthorizedException,
 import { Response } from 'express';
 
 import { AuthPayload } from '../../auth/auth.types';
-import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { JwtOrApiTokenGuard } from '../../auth/jwt-or-api-token.guard';
+import { RequireScopes } from '../../auth/require-scopes.decorator';
 import { type MonthlyReportDto } from './dto/monthly-report.dto';
 import { type OverviewReportDto } from './dto/overview-report.dto';
 import { type SprintReportDto } from './dto/sprint-report.dto';
 import { ReportsService } from './reports.service';
 
 @Controller('projects/:projectId/reports')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtOrApiTokenGuard)
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
   @Get('overview')
+  @RequireScopes('projects:read')
   getOverview(
     @Req() req: { user?: AuthPayload },
     @Param('projectId') projectId: string,
@@ -24,6 +26,7 @@ export class ReportsController {
   }
 
   @Get('overview.csv')
+  @RequireScopes('projects:read')
   @Header('Content-Type', 'text/csv; charset=utf-8')
   async getOverviewCsv(
     @Req() req: { user?: AuthPayload },
@@ -37,6 +40,7 @@ export class ReportsController {
   }
 
   @Get('sprints/:sprintId')
+  @RequireScopes('projects:read')
   getSprintReport(
     @Req() req: { user?: AuthPayload },
     @Param('projectId') projectId: string,
@@ -46,6 +50,7 @@ export class ReportsController {
   }
 
   @Get('sprints/:sprintId.csv')
+  @RequireScopes('projects:read')
   @Header('Content-Type', 'text/csv; charset=utf-8')
   async getSprintCsv(
     @Req() req: { user?: AuthPayload },
@@ -58,6 +63,7 @@ export class ReportsController {
   }
 
   @Get('monthly')
+  @RequireScopes('projects:read')
   getMonthlyReport(
     @Req() req: { user?: AuthPayload },
     @Param('projectId') projectId: string,
@@ -71,6 +77,7 @@ export class ReportsController {
   }
 
   @Get('monthly.csv')
+  @RequireScopes('projects:read')
   @Header('Content-Type', 'text/csv; charset=utf-8')
   async getMonthlyCsv(
     @Req() req: { user?: AuthPayload },

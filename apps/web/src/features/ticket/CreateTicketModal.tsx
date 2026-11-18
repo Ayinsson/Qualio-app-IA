@@ -99,6 +99,7 @@ export function CreateTicketModal(props: CreateTicketModalProps) {
         environment: environment.trim(),
         expectedResult: expectedResult.trim(),
         actualResult: actualResult.trim(),
+        dueDate,
       },
       files,
       destination,
@@ -191,6 +192,12 @@ export function CreateTicketModal(props: CreateTicketModalProps) {
               />
             </Field>
           </div>
+        ) : null}
+
+        {isBug ? (
+          <Field id="ticket-due" label="Fecha límite" optional>
+            <Input id="ticket-due" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+          </Field>
         ) : (
           <div className="qt-row">
             <Field id="ticket-assignee" label="Responsable" optional>

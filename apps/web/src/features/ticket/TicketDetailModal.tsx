@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 
 import type { WorkItemAttachment } from '../../lib/attachments';
 import type { Bug } from '../../lib/bugs';
+import type { WorkItemComment } from '../../lib/comments';
 import type { ProjectMember } from '../../lib/project-members';
 import type { Task } from '../../lib/tasks';
 import { Avatar, Button, Field, Input, Modal, Select, StatusBadge, Textarea } from '../../ui';
@@ -38,6 +39,7 @@ export type TicketSavePayload =
       environment: string;
       expectedResult: string;
       actualResult: string;
+      dueDate: string | null;
       changeNote: string;
     };
 
@@ -50,6 +52,11 @@ type TicketDetailModalProps = {
   loadingAttachments: boolean;
   history: HistoryEntry[];
   loadingHistory: boolean;
+  /** Comentarios del ticket. Sin onAddComment la sección no se muestra. */
+  comments?: WorkItemComment[];
+  loadingComments?: boolean;
+  /** Rechaza la promesa si falla; quien llama muestra el aviso. */
+  onAddComment?: (body: string) => Promise<void>;
   saving: boolean;
   onSave: (payload: TicketSavePayload) => Promise<void> | void;
   onAddAttachments: (files: File[]) => Promise<void>;
@@ -89,6 +96,9 @@ export function TicketDetailModal({
   loadingAttachments,
   history,
   loadingHistory,
+  comments = [],
+  loadingComments = false,
+  onAddComment,
   saving,
   onSave,
   onAddAttachments,
@@ -102,7 +112,7 @@ export function TicketDetailModal({
     priority: data.priority as Priority,
     status: data.status as string,
     assignedTo: isTask ? (item.data.assignedTo ?? '') : '',
-    dueDate: isTask ? dateOnly(item.data.dueDate) : '',
+    dueDate: dateOnly(item.data.dueDate),
     environment: !isTask ? (item.data.environment ?? '') : '',
     expectedResult: !isTask ? (item.data.expectedResult ?? '') : '',
     actualResult: !isTask ? (item.data.actualResult ?? '') : '',
@@ -112,6 +122,8 @@ export function TicketDetailModal({
   const [changeNote, setChangeNote] = useState('');
   const [confirmingClose, setConfirmingClose] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [commentDraft, setCommentDraft] = useState('');
+  const [sendingComment, setSendingComment] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const set = <K extends keyof typeof original>(key: K, value: (typeof original)[K]) => {
@@ -177,7 +189,24 @@ export function TicketDetailModal({
       environment: form.environment.trim(),
       expectedResult: form.expectedResult.trim(),
       actualResult: form.actualResult.trim(),
+      dueDate: form.dueDate ? new Date(form.dueDate).toISOString() : null,
     });
+  };
+
+  const sendComment = async () => {
+    const body = commentDraft.trim();
+    if (!body || !onAddComment) {
+      return;
+    }
+    setSendingComment(true);
+    try {
+      await onAddComment(body);
+      setCommentDraft('');
+    } catch {
+      // El aviso lo muestra quien llama; el borrador se conserva.
+    } finally {
+      setSendingComment(false);
+    }
   };
 
   const addFiles = async (list: FileList | null) => {
@@ -326,6 +355,57 @@ export function TicketDetailModal({
             </div>
           </section>
 
+          {onAddComment ? (
+            <section className="qt-block" aria-label="Comentarios">
+              <h3 className="q-field__label">
+                Comentarios{comments.length > 0 ? <span className="qt-count" aria-hidden="true">{comments.length}</span> : null}
+              </h3>
+              {loadingComments ? <p className="qt-muted">Cargando comentarios…</p> : null}
+              {comments.length > 0 ? (
+                <ol className="qt-comments">
+                  {comments.map((comment) => {
+                    const author = comment.authorName?.trim() || comment.authorEmail;
+                    return (
+                      <li key={comment.id}>
+                        <Avatar name={author} src={comment.authorAvatarUrl} size={26} />
+                        <div>
+                          <p className="qt-comment-head">
+                            <strong>{author}</strong>
+                            {comment.apiTokenName ? <span className="qt-via">vía {comment.apiTokenName}</span> : null}
+                            <time dateTime={comment.createdAt}>{formatEventTime(comment.createdAt)}</time>
+                          </p>
+                          <p className="qt-comment-body">{comment.body}</p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              ) : null}
+              <div className="qt-comment-form">
+                <label className="sr-only" htmlFor="ticket-comment">
+                  Escribe un comentario
+                </label>
+                <Textarea
+                  id="ticket-comment"
+                  value={commentDraft}
+                  onChange={(event) => setCommentDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                      event.preventDefault();
+                      void sendComment();
+                    }
+                  }}
+                  rows={2}
+                  maxLength={5000}
+                  placeholder="Escribe un comentario…"
+                />
+                <Button size="sm" variant="primary" onClick={() => void sendComment()} loading={sendingComment} disabled={!commentDraft.trim()}>
+                  Comentar
+                </Button>
+              </div>
+            </section>
+          ) : null}
+
           <section className="qt-block" aria-label="Actividad">
             <h3 className="q-field__label">Actividad</h3>
             {loadingHistory ? <p className="qt-muted">Cargando actividad…</p> : null}
@@ -341,6 +421,7 @@ export function TicketDetailModal({
                       </p>
                     ))}
                     <time dateTime={event.at}>{formatEventTime(event.at)}</time>
+                    {event.via ? <span className="qt-via">vía {event.via}</span> : null}
                     {event.note ? <q>{event.note}</q> : null}
                   </div>
                 </li>
@@ -389,7 +470,12 @@ export function TicketDetailModal({
               </Field>
             </>
           ) : (
-            <EnvironmentPicker value={form.environment} onChange={(value) => set('environment', value)} />
+            <>
+              <EnvironmentPicker value={form.environment} onChange={(value) => set('environment', value)} />
+              <Field id="ticket-detail-due" label="Fecha límite">
+                <Input id="ticket-detail-due" type="date" value={form.dueDate} onChange={(event) => set('dueDate', event.target.value)} />
+              </Field>
+            </>
           )}
 
           <dl className="qt-facts">

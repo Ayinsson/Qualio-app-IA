@@ -13,12 +13,22 @@ type ProfileModalProps = {
   onChangePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   onUploadPhoto: (file: File) => Promise<void>;
   onRemovePhoto: () => Promise<void>;
+  /** Abre la gestión de tokens de API. Sin esta prop la sección no se muestra. */
+  onManageApiTokens?: () => void;
   onClose: () => void;
 };
 
 const EMPTY_PASSWORD: PasswordValues = { current: '', next: '', confirm: '' };
 
-export function ProfileModal({ user, onSaveName, onChangePassword, onUploadPhoto, onRemovePhoto, onClose }: ProfileModalProps) {
+export function ProfileModal({
+  user,
+  onSaveName,
+  onChangePassword,
+  onUploadPhoto,
+  onRemovePhoto,
+  onManageApiTokens,
+  onClose,
+}: ProfileModalProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(user.name);
   const [savedName, setSavedName] = useState(user.name);
@@ -301,6 +311,24 @@ export function ProfileModal({ user, onSaveName, onChangePassword, onUploadPhoto
             </form>
           ) : null}
         </section>
+
+        {onManageApiTokens ? (
+          <section className="qpf-section" aria-labelledby="profile-api-tokens-title">
+            <div className="qpf-password-head">
+              <div>
+                <h3 id="profile-api-tokens-title" className="qpf-title">
+                  Tokens de API
+                </h3>
+                <p className="qpf-muted">
+                  {dirty ? 'Guarda o descarta tus cambios para abrirlos.' : 'Conecta agentes de IA o scripts a tus proyectos.'}
+                </p>
+              </div>
+              <Button size="sm" onClick={onManageApiTokens} disabled={dirty}>
+                Gestionar
+              </Button>
+            </div>
+          </section>
+        ) : null}
       </div>
     </Modal>
   );

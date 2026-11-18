@@ -8,5 +8,6 @@ import { BugsService } from './bugs.service';
   imports: [NotificationsModule],
   controllers: [BugsController],
   providers: [BugsService],
+  exports: [BugsService],
 })
 export class BugsModule {}

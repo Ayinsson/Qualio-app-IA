@@ -14,6 +14,7 @@
 -- ---------------------------------------------------------------------
 ALTER TABLE users                  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE refresh_tokens         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE api_tokens             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE projects               ENABLE ROW LEVEL SECURITY;
 ALTER TABLE project_members        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE project_item_sequences ENABLE ROW LEVEL SECURITY;
@@ -24,6 +25,7 @@ ALTER TABLE tasks                  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bugs                   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE work_item_history      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE work_item_attachments  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE work_item_comments     ENABLE ROW LEVEL SECURITY;
 
 -- ---------------------------------------------------------------------
 -- 2) Realtime para notifications

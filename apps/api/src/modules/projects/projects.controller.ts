@@ -12,18 +12,20 @@ import {
 } from '@nestjs/common';
 
 import { AuthPayload } from '../../auth/auth.types';
-import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { JwtOrApiTokenGuard } from '../../auth/jwt-or-api-token.guard';
+import { RequireScopes } from '../../auth/require-scopes.decorator';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { ProjectSummaryDto } from './dto/project-summary.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectEntity, ProjectsService } from './projects.service';
 
 @Controller('projects')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtOrApiTokenGuard)
 export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
 
   @Post()
+  @RequireScopes('projects:write')
   create(
     @Req() req: { user?: AuthPayload },
     @Body() dto: CreateProjectDto,
@@ -32,6 +34,7 @@ export class ProjectsController {
   }
 
   @Get()
+  @RequireScopes('projects:read')
   findAll(
     @Req() req: { user?: AuthPayload },
     @Query('status') status?: 'ACTIVE' | 'ARCHIVED',
@@ -40,6 +43,7 @@ export class ProjectsController {
   }
 
   @Get(':id')
+  @RequireScopes('projects:read')
   findOne(
     @Req() req: { user?: AuthPayload },
     @Param('id') id: string,
@@ -48,6 +52,7 @@ export class ProjectsController {
   }
 
   @Patch(':id')
+  @RequireScopes('projects:write')
   update(
     @Req() req: { user?: AuthPayload },
     @Param('id') id: string,
@@ -57,6 +62,7 @@ export class ProjectsController {
   }
 
   @Patch(':id/archive')
+  @RequireScopes('projects:write')
   archive(
     @Req() req: { user?: AuthPayload },
     @Param('id') id: string,
@@ -65,6 +71,7 @@ export class ProjectsController {
   }
 
   @Get(':id/summary')
+  @RequireScopes('projects:read')
   summary(
     @Req() req: { user?: AuthPayload },
     @Param('id') id: string,

@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 
+import { currentApiTokenId } from '../../common/request-context';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ProjectMembersService } from '../project-members/project-members.service';
@@ -46,6 +47,9 @@ export type TaskHistoryEntry = {
   oldValue: string | null;
   newValue: string | null;
   changeNote: string | null;
+  /** Token de API con el que se hizo el cambio; null si fue desde la web. */
+  apiTokenId: string | null;
+  apiTokenName: string | null;
   createdAt: Date;
 };
 
@@ -403,6 +407,7 @@ export class TasksService {
             old_value,
             new_value,
             change_note,
+            api_token_id,
             created_at
           )
           VALUES (
@@ -415,6 +420,7 @@ export class TasksService {
             ${entry.oldValue},
             ${entry.newValue},
             ${dto.changeNote?.trim() || null},
+            ${currentApiTokenId()},
             NOW()
           )
         `;
@@ -452,9 +458,12 @@ export class TasksService {
         h.old_value AS "oldValue",
         h.new_value AS "newValue",
         h.change_note AS "changeNote",
+        h.api_token_id AS "apiTokenId",
+        t.name AS "apiTokenName",
         h.created_at AS "createdAt"
       FROM work_item_history h
       JOIN users u ON u.id = h.changed_by
+      LEFT JOIN api_tokens t ON t.id = h.api_token_id
       WHERE h.entity_type = 'TASK'
         AND h.entity_id = ${id}
       ORDER BY h.created_at DESC

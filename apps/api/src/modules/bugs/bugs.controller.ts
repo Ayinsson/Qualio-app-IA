@@ -1,7 +1,8 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
 
 import { AuthPayload } from '../../auth/auth.types';
-import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { JwtOrApiTokenGuard } from '../../auth/jwt-or-api-token.guard';
+import { RequireScopes } from '../../auth/require-scopes.decorator';
 import { type BacklogSection } from '../tasks/dto/create-task.dto';
 import { BugsService, type BugEntity, type BugHistoryEntry } from './bugs.service';
 import { CreateBugDto } from './dto/create-bug.dto';
@@ -9,11 +10,12 @@ import { MoveBugDto } from './dto/move-bug.dto';
 import { UpdateBugDto } from './dto/update-bug.dto';
 
 @Controller()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtOrApiTokenGuard)
 export class BugsController {
   constructor(private readonly bugsService: BugsService) {}
 
   @Post('projects/:projectId/bugs')
+  @RequireScopes('tickets:write')
   create(
     @Req() req: { user?: AuthPayload },
     @Param('projectId') projectId: string,
@@ -23,6 +25,7 @@ export class BugsController {
   }
 
   @Get('projects/:projectId/bugs')
+  @RequireScopes('tickets:read')
   findAll(
     @Req() req: { user?: AuthPayload },
     @Param('projectId') projectId: string,
@@ -32,6 +35,7 @@ export class BugsController {
   }
 
   @Patch('bugs/:id/move')
+  @RequireScopes('tickets:write')
   move(
     @Req() req: { user?: AuthPayload },
     @Param('id') id: string,
@@ -41,6 +45,7 @@ export class BugsController {
   }
 
   @Patch('bugs/:id')
+  @RequireScopes('tickets:write')
   update(
     @Req() req: { user?: AuthPayload },
     @Param('id') id: string,
@@ -50,11 +55,13 @@ export class BugsController {
   }
 
   @Patch('bugs/:id/reopen')
+  @RequireScopes('tickets:write')
   reopen(@Req() req: { user?: AuthPayload }, @Param('id') id: string): Promise<BugEntity> {
     return this.bugsService.reopen(this.getUserId(req), id);
   }
 
   @Get('bugs/:id/history')
+  @RequireScopes('tickets:read')
   history(
     @Req() req: { user?: AuthPayload },
     @Param('id') id: string,
